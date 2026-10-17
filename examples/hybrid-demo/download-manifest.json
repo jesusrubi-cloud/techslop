@@ -1,0 +1,14 @@
+{
+  "techslop-demo.mp4": {
+    "sha256": "86c7b0b0d78f60494f0bd02b6980d39237d5c1b48eb973649cb387029d7c2d17",
+    "size_bytes": 2199801
+  },
+  "contact-sheet.jpg": {
+    "sha256": "4da004f6d15fdfe2e34e940a6952ffa88801d0f6c08eebdce29b2ed1fc3ad8c9",
+    "size_bytes": 262258
+  },
+  "verification.json": {
+    "sha256": "ab8c3c100000af00b3a59aa0196d78ed5a4b5b32f9c0ad7930e617dda324b9a0",
+    "size_bytes": 835
+  }
+}

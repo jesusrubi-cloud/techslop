@@ -132,3 +132,7 @@ fechada de diez acontecimientos, sus puntuaciones y todos los enlaces utilizados
 El comando `render-editorial` adapta el contrato editorial a un MP4 vertical con
 cuatro tipos de escena, ilustraciones originales, subtítulos y transiciones.
 [Guía y demo reproducible](docs/hybrid-render.md). Sin APIs de pago ni publicación.
+
+¿No puedes abrir las rutas internas de Codex? Usa el workflow manual
+**Descargar demo híbrida**: [instrucciones de descarga desde GitHub](docs/download-demo.md).
+Entrega el MP4 y la hoja de escenas originales, sin volver a renderizarlos.
