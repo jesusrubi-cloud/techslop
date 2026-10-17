@@ -59,8 +59,8 @@ def base(scene: RenderScene, plan: RenderPlan, index: int) -> Image.Image:
         text_block(draw, scene.title, (72, 290), 68, 930, bold=True, max_lines=4)
     text_block(draw, scene.text, (76, 670), 36, 914, color=MUTED, max_lines=4)
     draw.rounded_rectangle((64, 1400, 1016, 1456), radius=16, fill='#48342f' if plan.audio_mode == 'test_tone' else '#1e3b3b')
-    audio_label = 'AUDIO DE PRUEBA · TONO, SIN VOZ' if plan.audio_mode == 'test_tone' else 'NARRACIÓN SINTÉTICA · ESPAÑOL DE MÉXICO'
-    draw.text((85, 1415), audio_label, font=font(26, True), fill=CORAL if plan.audio_mode == 'test_tone' else TEAL)
+    audio_label = {'test_tone': 'AUDIO DE PRUEBA · TONO, SIN VOZ', 'edge_es_MX': 'VOZ EDGE · ESPAÑOL DE MÉXICO', 'espeak_es_419': 'VOZ LOCAL SINTÉTICA · ESPAÑOL LATINOAMERICANO', 'provided_voice': 'NARRACIÓN APORTADA · REVISIÓN HUMANA'}[plan.audio_mode]
+    draw.text((85, 1415), audio_label, font=font(24, True), fill=CORAL if plan.audio_mode == 'test_tone' else TEAL)
     draw.text((72, 1800), 'PROTOTIPO LOCAL / SIN PUBLICACIÓN', font=font(25), fill=MUTED)
     return image
 
@@ -93,7 +93,8 @@ def frame(scene: RenderScene, plan: RenderPlan, index: int, t: float, background
         # Original document illustration; no photo, geographical map or external asset.
         positions = [(125, 955), (430, 1010), (735, 955)]
         for i, (x, y) in enumerate(positions):
-            y += int(12 * math.sin(t * .8 + i))
+            entry = 1 - (1 - max(0, min((t - i * .18) / 1.2, 1))) ** 3
+            y += int(12 * math.sin(t * .8 + i) + 90 * (1 - entry))
             draw.rounded_rectangle((x, y, x+220, y+230), radius=24, fill='#1a3046', outline=TEAL, width=3)
             for row in range(3):
                 draw.line((x+30, y+45+row*36, x+175, y+45+row*36), fill=MUTED, width=6)
@@ -105,7 +106,8 @@ def frame(scene: RenderScene, plan: RenderPlan, index: int, t: float, background
         for i, value in enumerate(plan.chart_values):
             y = 940 + i * 95
             draw.text((80, y), f'ESCENA {i+1}', font=font(25, True), fill=MUTED)
-            length = int(570 * value / maximum * ease)
+            bar_ease = 1 - (1 - max(0, min((t - i * .22) / 1.4, 1))) ** 3
+            length = int(570 * value / maximum * bar_ease)
             if length:
                 draw.rounded_rectangle((270, y, 270+length, y+43), radius=10, fill=TEAL if i % 2 == 0 else CORAL)
             draw.text((875, y), f'{value:.1f} s', font=font(28, True), fill=WHITE)

@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
 
     # ── TTS ──────────────────────────────────────────────────────────────
+    narration_provider: str = "auto"  # auto | edge | espeak | provided | test (no paid APIs)
+    narration_audio_dir: str = ""
+    narration_rate: str = "+0%"
+    local_tts_voice: str = "es-419"
+    local_tts_rate: int = 155
     edge_tts_voice: str = "es-MX-JorgeNeural"
     tts_provider: str = "edge"  # edge | openai | elevenlabs | chatterbox
     elevenlabs_api_key: str = ""

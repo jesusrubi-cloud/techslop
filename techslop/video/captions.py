@@ -32,11 +32,14 @@ HIGHLIGHT_COLOR = "00FFFF"  # Yellow in ASS BGR format (&H00FFFF& = yellow)
 
 def _format_ass_time(seconds: float) -> str:
     """Convert seconds to ASS timestamp format (H:MM:SS.cc)."""
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    secs = int(seconds % 60)
-    centiseconds = int(round((seconds % 1) * 100))
+    if seconds < 0:
+        raise ValueError('Subtitle times must be non-negative')
+    ticks = round(seconds * 100)
+    hours, rest = divmod(ticks, 360000)
+    minutes, rest = divmod(rest, 6000)
+    secs, centiseconds = divmod(rest, 100)
     return f"{hours}:{minutes:02d}:{secs:02d}.{centiseconds:02d}"
+
 
 
 def generate_captions(timestamps_path: Path, output_path: Path) -> Path:

@@ -1,5 +1,9 @@
 # Primer render híbrido local
 
+Esta guía conserva el primer render con tono de prueba. La versión actual incorpora
+[voz local, Edge configurable y mezcla musical](narration-sync.md); `auto` ya no
+desciende silenciosamente a un tono: usa voz local o informa un error.
+
 El adaptador `techslop/render/adapter.py` conecta el contrato editorial con clips
 originales de Pillow y el ensamblador existente `assemble_video_motion` de FFmpeg.
 No necesita Remotion: esta versión usa ilustraciones geométricas, títulos,

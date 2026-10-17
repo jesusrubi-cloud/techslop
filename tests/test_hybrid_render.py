@@ -88,12 +88,12 @@ def test_transition_padding_preserves_audio_scene_boundaries():
     assert 'offset=45.000' in chain
 
 
-def test_edge_failure_generates_measurable_labelled_test_audio(demo, tmp_path, monkeypatch):
+def test_explicit_test_audio_generates_measurable_labelled_tone(demo, tmp_path, monkeypatch):
     script = validate_script(demo[0], demo[1])
     monkeypatch.setattr('techslop.render.audio._edge', AsyncMock(side_effect=ConnectionError('blocked')))
-    paths, durations, boundaries, mode, reason = prepare_audio(script, tmp_path)
+    paths, durations, boundaries, mode, reason = prepare_audio(script, tmp_path, provider="test")
     assert mode == 'test_tone'
-    assert reason == 'ConnectionError'
+    assert reason == 'explicit_test_audio'
     assert sum(durations) == pytest.approx(60)
     assert all(p.name.startswith('test-audio-') for p in paths)
     assert boundaries == [[]]*4

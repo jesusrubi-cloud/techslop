@@ -33,3 +33,10 @@ def test_generate_captions(tmp_path):
     assert "[Events]" in content
     # Should have dialogue lines
     assert "Dialogue:" in content
+
+
+def test_ass_timestamp_rounding_carries_to_next_minute():
+    from techslop.video.captions import _format_ass_time
+    assert _format_ass_time(59.999) == '0:01:00.00'
+    assert _format_ass_time(3599.999) == '1:00:00.00'
+    assert _format_ass_time(1.999) == '0:00:02.00'

@@ -136,3 +136,10 @@ cuatro tipos de escena, ilustraciones originales, subtítulos y transiciones.
 ¿No puedes abrir las rutas internas de Codex? Usa el workflow manual
 **Descargar demo híbrida**: [instrucciones de descarga desde GitHub](docs/download-demo.md).
 Entrega el MP4 y la hoja de escenas originales, sin volver a renderizarlos.
+
+## Demo con narración sincronizada
+
+Voz mexicana Edge cuando la red lo permita, alternativa local latinoamericana,
+audio aportado por otros proveedores y música opcional con ducking:
+[configuración, verificación y descarga por Actions](docs/narration-sync.md).
+La demo con voz se descarga con el workflow manual **Descargar demo con voz**.
