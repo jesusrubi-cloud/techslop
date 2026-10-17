@@ -20,7 +20,7 @@ no ejecutó Actions ni envió peticiones reales a ElevenLabs.
 - Sin reintentos, cambios de modelo, voces alternativas ni solicitudes de respaldo.
 - Marcador local de intento: volver a ejecutar sobre la misma carpeta falla antes de pedir audio.
 - Sin redirecciones, URL de API fija y tiempo de espera de 45 s por solicitud.
-- Respuesta de audio limitada a 2 MB y trabajo de Actions limitado a cuatro minutos.
+- Respuesta de audio limitada a 2 MB y trabajo de Actions limitado a ocho minutos (incluye instalación de herramientas).
 - MP3 final de **máximo 15 segundos**, validado con ffprobe y decodificado completamente.
 - Artefactos: solo MP3 e informe sin secretos; conservación de siete días.
 
@@ -81,3 +81,12 @@ uv run --frozen pytest tests/test_elevenlabs_manual.py -q
 
 La clase de ElevenLabs del flujo legado sigue bloqueada deliberadamente: una
 selección accidental de `TTS_PROVIDER=elevenlabs` no debe eludir el workflow manual.
+
+## Preparación del runner
+
+El workflow comprueba Python y, si falta FFmpeg o FFprobe, ejecuta `sudo apt-get update`
+y `sudo apt-get install --yes --no-install-recommends ffmpeg`. El paquete de Ubuntu
+incluye ambas herramientas. Después muestra rutas y versiones y vuelve a verificar
+que ambas estén disponibles. La instalación ocurre antes del paso que recibe el
+secreto y genera audio; no realiza llamadas a ElevenLabs. Si APT falla o una
+herramienta sigue ausente, el job se detiene antes de la síntesis.

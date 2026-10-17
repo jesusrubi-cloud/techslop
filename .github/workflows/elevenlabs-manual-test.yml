@@ -20,16 +20,39 @@ jobs:
   test:
     if: ${{ inputs.authorize_one_request == true }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 4
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Comprobar herramientas de audio
+      - name: Preparar y comprobar herramientas de audio
+        shell: bash
         run: |
-          command -v python3
-          command -v ffmpeg
-          command -v ffprobe
+          set -euo pipefail
+          if ! command -v python3 >/dev/null 2>&1; then
+            echo "::error::python3 no está disponible en el runner."
+            exit 1
+          fi
+          echo "Python: $(command -v python3)"
+          python3 --version
+
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+            echo "::notice::Falta ffmpeg o ffprobe; instalando el paquete ffmpeg de Ubuntu mediante APT."
+            sudo apt-get update
+            sudo apt-get install --yes --no-install-recommends ffmpeg
+            hash -r
+          else
+            echo "FFmpeg y FFprobe ya están disponibles; no es necesario instalar paquetes."
+          fi
+
+          for tool in ffmpeg ffprobe; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              echo "::error::$tool sigue sin estar disponible después de preparar el runner."
+              exit 1
+            fi
+            echo "$tool: $(command -v "$tool")"
+            "$tool" -version
+          done
       - name: Generar una sola prueba explícitamente autorizada
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
