@@ -125,10 +125,10 @@ exactitud, citas, derechos de materiales y ritmo; el campo `language` no detecta
 el idioma automáticamente. `editorial_status=reviewed` no equivale a aprobación
 de publicación. El contrato prohíbe `publication_approved=true`.
 
-Este formato editorial **todavía no es el `Script` del renderizador antiguo**.
-No se envía directamente a `voice` o `video`; queda pendiente el adaptador de
-escenas/subtítulos al renderizador. Se conserva el flujo manual anterior y su
-protección de publicación. No se activa la generación de OpenAI ni fal.ai.
+El adaptador independiente `render-editorial` conecta ahora este contrato al
+ensamblador de clips y subtítulos de FFmpeg. Consulta [la guía de render híbrido](hybrid-render.md)
+para los cuatro tipos de escena, la demo ficticia, Edge TTS y los límites actuales.
+El render local no usa OpenAI ni fal.ai ni concede aprobación para publicar.
 
 ## Evidencia de validación
 

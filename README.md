@@ -126,3 +126,9 @@ y [el contrato de guion de 45–75 segundos](schemas/editorial-script.schema.jso
 
 La [validación con RSS reales](docs/editorial-validation.md) conserva una selección
 fechada de diez acontecimientos, sus puntuaciones y todos los enlaces utilizados.
+
+## Render híbrido local
+
+El comando `render-editorial` adapta el contrato editorial a un MP4 vertical con
+cuatro tipos de escena, ilustraciones originales, subtítulos y transiciones.
+[Guía y demo reproducible](docs/hybrid-render.md). Sin APIs de pago ni publicación.

@@ -108,6 +108,22 @@ def list_stories(status, source, limit, category):
         click.echo(f"\n  ... and {total - limit} more. Use --limit to show more.")
 
 
+@cli.command("render-editorial")
+@click.option("--script", "script_file", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--dossier", "dossier_file", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--presentation", "presentation_file", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--output-dir", type=click.Path(path_type=Path), required=True)
+@click.option("--test-audio", is_flag=True, help="Skip Edge TTS and use a labelled test tone.")
+def render_editorial_command(script_file, dossier_file, presentation_file, output_dir, test_audio):
+    """Render a local vertical MP4; never publishes or calls paid APIs."""
+    from techslop.render.runner import render_editorial
+    try:
+        result = render_editorial(script_file, dossier_file, presentation_file, output_dir, try_edge=not test_audio)
+    except (ValueError, PermissionError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 @cli.command("editorial")
 @click.option("--limit", type=click.IntRange(1, 50), default=10, show_default=True)
 @click.option("--json", "as_json", is_flag=True, help="Expedientes completos en JSON; sin red ni generación de pago.")

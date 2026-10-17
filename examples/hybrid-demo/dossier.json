@@ -1,0 +1,26 @@
+{
+  "event_id": "hybrid-demo-v1",
+  "title": "Así se construye una noticia visual — demostración ficticia",
+  "content_type": "fictional_demonstration",
+  "sources": [
+    {
+      "source": "original_local_manifest",
+      "url": "urn:techslop:fictional-demo:original-manifest"
+    }
+  ],
+  "pending_claims": [
+    {
+      "id": "demo-format",
+      "text": "Demostración técnica ficticia, sin noticia periodística.",
+      "source_urls": [
+        "urn:techslop:fictional-demo:original-manifest"
+      ],
+      "status": "verified_local"
+    }
+  ],
+  "supported_facts": [],
+  "independent_corroboration": {
+    "status": "not_established"
+  },
+  "publication_approved": false
+}
