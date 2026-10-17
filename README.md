@@ -143,3 +143,9 @@ Voz mexicana Edge cuando la red lo permita, alternativa local latinoamericana,
 audio aportado por otros proveedores y música opcional con ducking:
 [configuración, verificación y descarga por Actions](docs/narration-sync.md).
 La demo con voz se descarga con el workflow manual **Descargar demo con voz**.
+
+## Prueba manual ElevenLabs
+
+[Workflow optativo de narración mexicana ≤15 s](docs/elevenlabs-manual-test.md):
+secreto de Actions, autorización manual, texto fijo de 63 caracteres y una sola
+generación como máximo, sin reintentos. No se ejecuta al hacer push.

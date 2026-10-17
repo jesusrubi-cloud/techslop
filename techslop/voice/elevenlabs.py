@@ -8,4 +8,4 @@ class ElevenLabsTTS(TTSProvider):
         self.config = config
 
     async def synthesize_chunk(self, text: str, output_path: Path) -> Path:
-        raise NotImplementedError("ElevenLabs TTS not yet implemented")
+        raise PermissionError("ElevenLabs is restricted to the explicitly authorized manual Actions test; automatic generation is disabled")
