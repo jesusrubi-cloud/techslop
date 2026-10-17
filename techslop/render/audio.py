@@ -1,4 +1,4 @@
-"""Free Edge TTS only; a failed connection yields an explicitly labelled test tone."""
+"""Configurable free narration: Edge, local eSpeak, supplied audio or explicit test tone."""
 from __future__ import annotations
 
 import asyncio
@@ -7,16 +7,20 @@ from pathlib import Path
 import subprocess
 import edge_tts
 
+from techslop.config import settings
+
 from techslop.editorial.script_format import EditorialScript
 from techslop.video.assembler import get_audio_duration
 
 
 async def _edge(script: EditorialScript, root: Path) -> tuple[list[Path], list[list[dict]]]:
+    if not settings.edge_tts_voice.startswith("es-MX-"):
+        raise ValueError("Choose an es-MX Edge voice for Mexican Spanish")
     paths, boundaries = [], []
     for i, scene in enumerate(script.scenes):
         path = root / f'narration-{i}.mp3'
         # Respect the managed HTTPS proxy; no direct-network bypass.
-        stream = edge_tts.Communicate(scene.narration_es, 'es-MX-JorgeNeural', boundary='WordBoundary',
+        stream = edge_tts.Communicate(scene.narration_es, settings.edge_tts_voice, rate=settings.narration_rate, boundary='WordBoundary',
                                       proxy=os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy'),
                                       connect_timeout=8, receive_timeout=15)
         words = []
@@ -34,10 +38,24 @@ async def _edge(script: EditorialScript, root: Path) -> tuple[list[Path], list[l
     return paths, boundaries
 
 
-def prepare_audio(script: EditorialScript, root: Path, *, try_edge: bool = True) -> tuple[list[Path], list[float], list[list[dict]], str, str | None]:
+def prepare_audio(script: EditorialScript, root: Path, *, try_edge: bool = True, provider: str | None = None) -> tuple[list[Path], list[float], list[list[dict]], str, str | None]:
     root.mkdir(parents=True, exist_ok=True)
+    selected = provider or (settings.narration_provider if try_edge else 'test')
+    if selected not in {'auto', 'edge', 'espeak', 'provided', 'test'}:
+        raise ValueError('Narration provider must be auto, edge, espeak, provided or test. Paid providers are not enabled by this renderer.')
+    if selected == 'provided':
+        import json
+        directory = Path(settings.narration_audio_dir)
+        if not settings.narration_audio_dir:
+            raise ValueError('NARRATION_AUDIO_DIR is required for provided narration')
+        paths = [directory / f'scene-{i+1}.wav' for i in range(len(script.scenes))]
+        durations = [get_audio_duration(p) for p in paths]
+        if not 45 <= sum(durations) <= 75:
+            raise ValueError('Provided narration must total 45–75 seconds')
+        boundaries = [json.loads(p.with_suffix('.words.json').read_text()) if p.with_suffix('.words.json').exists() else [] for p in paths]
+        return paths, durations, boundaries, 'provided_voice', None
     reason = None
-    if try_edge:
+    if selected in {'auto', 'edge'}:
         try:
             async def bounded():
                 return await asyncio.wait_for(_edge(script, root), timeout=90)
@@ -49,10 +67,23 @@ def prepare_audio(script: EditorialScript, root: Path, *, try_edge: bool = True)
         except Exception as exc:
             # Never dump proxy URLs, credentials or arbitrary exception payloads.
             reason = type(exc).__name__
-    else:
+    elif selected == 'test':
         reason = 'explicit_test_audio'
     for partial in root.glob('narration-*.mp3'):
         partial.unlink()
+    if selected in {'auto', 'espeak'}:
+        from techslop.render.local_voice import synthesize_local
+        paths, boundaries = [], []
+        for i, scene in enumerate(script.scenes):
+            path = root / f'local-voice-{i}.wav'
+            boundaries.append(synthesize_local(scene.narration_es, path, voice=settings.local_tts_voice, rate=settings.local_tts_rate))
+            paths.append(path)
+        durations = [get_audio_duration(p) for p in paths]
+        if not 45 <= sum(durations) <= 75:
+            raise ValueError(f'Local narration totals {sum(durations):.2f}s; revise copy or LOCAL_TTS_RATE to fit 45–75s')
+        return paths, durations, boundaries, 'espeak_es_419', reason
+    if selected == 'edge' and reason:
+        raise RuntimeError(f'Edge unavailable ({reason}); choose auto, espeak or explicit test audio')
     paths = []
     for i, scene in enumerate(script.scenes):
         path = root / f'test-audio-{i}.wav'

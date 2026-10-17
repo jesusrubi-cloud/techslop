@@ -1,0 +1,39 @@
+name: Descargar demo con voz
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Recuperar demo con voz y verificar hashes
+        run: >-
+          python3 scripts/package_hybrid_demo.py
+          --bundle examples/narrated-demo/download-bundle.zip
+          --manifest examples/narrated-demo/download-manifest.json
+          --output downloadable-narrated-demo
+      - name: Instrucciones de descarga
+        run: |
+          {
+            echo '### Demo con voz lista'
+            echo 'Descarga **techslop-demo-con-voz** en la sección **Artifacts** de esta ejecución y descomprime el ZIP.'
+            echo 'Incluye MP4, hoja de escenas, informe de voz/música/licencia y SHA256SUMS.'
+            echo 'Voz local sintética latinoamericana; no es la voz es-MX de Edge. Caso ficticio.'
+            echo 'Esta ejecución solo recupera los bytes ya verificados: no renderiza ni llama a servicios de voz ni publica en redes.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: techslop-demo-con-voz
+          path: |
+            downloadable-narrated-demo/techslop-demo.mp4
+            downloadable-narrated-demo/contact-sheet.jpg
+            downloadable-narrated-demo/verification.json
+            downloadable-narrated-demo/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

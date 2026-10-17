@@ -40,8 +40,13 @@ def verify_mp4(path: Path, expected_duration: float) -> dict:
             'size_bytes': path.stat().st_size, 'full_decode': 'passed'}
 
 
-def render_editorial(script_file: Path, dossier_file: Path, presentation_file: Path, output_dir: Path, *, try_edge: bool = True) -> dict:
+def render_editorial(script_file: Path, dossier_file: Path, presentation_file: Path, output_dir: Path, *, try_edge: bool = True, provider: str | None = None, music_file: Path | None = None, music_license: Path | None = None) -> dict:
     started = time.monotonic()
+    if bool(music_file) != bool(music_license):
+        raise ValueError('Music file and license metadata must be supplied together')
+    if music_file:
+        from techslop.render.music import validate_license
+        validate_license(music_file, music_license)
     data = json.loads(script_file.read_text())
     dossier = json.loads(dossier_file.read_text())
     presentation = json.loads(presentation_file.read_text())
@@ -52,7 +57,7 @@ def render_editorial(script_file: Path, dossier_file: Path, presentation_file: P
     if output_dir.exists() and any(output_dir.iterdir()):
         raise ValueError('Choose an empty output directory to preserve existing user artifacts')
     output_dir.mkdir(parents=True, exist_ok=True)
-    paths, durations, boundaries, audio_mode, fallback_reason = prepare_audio(script, output_dir, try_edge=try_edge)
+    paths, durations, boundaries, audio_mode, fallback_reason = prepare_audio(script, output_dir, try_edge=try_edge, provider=provider)
     script, plan = adapt(data, dossier, presentation, durations, audio_mode)
     timestamps, subtitle_mode = word_timestamps(script, plan, boundaries)
     timestamp_file = output_dir / 'timestamps.json'
@@ -60,17 +65,23 @@ def render_editorial(script_file: Path, dossier_file: Path, presentation_file: P
     captions = generate_captions(timestamp_file, output_dir / 'captions.ass')
     narration = output_dir / 'narration.wav'
     concatenate(paths, narration)
+    music_report = {'enabled': False}
+    assembly_audio = narration
+    if music_file:
+        from techslop.render.music import mix_with_ducking
+        assembly_audio = output_dir / 'narration-mixed.wav'
+        music_report = mix_with_ducking(narration, music_file, music_license, assembly_audio)
     clips = []
     for i, scene in enumerate(plan.scenes):
         print(f'Rendering {i+1}/{len(plan.scenes)}: {scene.kind} ({scene.duration:.2f}s)', flush=True)
         frame(scene, plan, i, min(3, scene.duration / 2)).save(output_dir / f'scene-{i+1}.png')
         clips.append(render_clip(scene, plan, i, output_dir / f'clip-{i}.mp4', tail=.4 if i < len(plan.scenes)-1 else 0))
-    output = assemble_video_motion(clips, narration, captions, output_dir / 'techslop-demo.mp4', crossfade=.4)
+    output = assemble_video_motion(clips, assembly_audio, captions, output_dir / 'techslop-demo.mp4', crossfade=.4)
     result = verify_mp4(output, plan.duration)
     # Preserve input snapshots and timing provenance alongside the MP4.
     for name, obj in [('script.json', data), ('dossier.json', dossier), ('presentation.json', presentation), ('render-plan.json', asdict(plan))]:
         (output_dir / name).write_text(json.dumps(obj, ensure_ascii=False, indent=2))
-    result.update(audio_mode=audio_mode, fallback_reason=fallback_reason, subtitle_mode=subtitle_mode,
+    result.update(music=music_report, narration_duration_seconds=plan.duration, audio_mode=audio_mode, fallback_reason=fallback_reason, subtitle_mode=subtitle_mode,
                   fictional_demo=plan.demo, rendering_wall_seconds=round(time.monotonic()-started, 2),
                   paid_api_calls=0, external_api_cost_usd=0, publication_approved=False,
                   output_path=str(output.resolve()))

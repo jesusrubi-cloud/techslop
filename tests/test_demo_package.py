@@ -40,3 +40,14 @@ def test_corrupted_bundle_is_rejected_before_output(tmp_path):
     with pytest.raises(ValueError, match='Integrity'):
         package_demo(output, bundle=changed)
     assert not output.exists()
+
+
+def test_narrated_demo_archive_preserves_voice_and_music_metadata(tmp_path):
+    manifest=package_demo(tmp_path/'voiced',bundle=Path('examples/narrated-demo/download-bundle.zip'),manifest_file=Path('examples/narrated-demo/download-manifest.json'))
+    report=json.loads((tmp_path/'voiced/verification.json').read_text())
+    assert report['audio_mode']=='espeak_es_419'
+    assert report['subtitle_mode']=='espeak_word_events'
+    assert report['music']['license']['license']=='CC0-1.0'
+    assert report['paid_api_calls']==0
+    assert report['publication_approved'] is False
+    assert manifest['techslop-demo.mp4']['size_bytes']>1000000

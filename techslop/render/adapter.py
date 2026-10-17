@@ -37,7 +37,7 @@ def adapt(data: dict, dossier: dict, presentation: dict, durations: list[float],
         raise ValueError('Real news requires reviewed script and independent corroboration; use an explicit fictional demonstration otherwise')
     if len(durations) != len(script.scenes) or any(not math.isfinite(d) or d <= 0 for d in durations):
         raise ValueError('One positive measured audio duration is required per scene')
-    if audio_mode not in {'edge_es_MX', 'test_tone'}:
+    if audio_mode not in {'edge_es_MX', 'espeak_es_419', 'provided_voice', 'test_tone'}:
         raise ValueError('Unsupported audio mode')
     if set(presentation) != {s.id for s in script.scenes}:
         raise ValueError('Presentation must describe exactly the script scenes')
@@ -87,4 +87,4 @@ def word_timestamps(script: EditorialScript, plan: RenderPlan, boundaries: list[
                 words.extend({'word': w, 'start': start + i * step, 'end': start + (i + 1) * step}
                              for i, w in enumerate(split))
         result.extend({'word': w['word'], 'start': scene.start + w['start'], 'end': scene.start + min(w['end'], scene.duration)} for w in words)
-    return result, 'scaled_contract_reading_cues' if estimated else 'edge_word_boundaries'
+    return result, 'scaled_contract_reading_cues' if estimated else ('espeak_word_events' if plan.audio_mode == 'espeak_es_419' else 'provided_word_boundaries' if plan.audio_mode == 'provided_voice' else 'edge_word_boundaries')

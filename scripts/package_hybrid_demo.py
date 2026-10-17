@@ -40,8 +40,10 @@ def package_demo(output: Path, *, bundle: Path | None = None, manifest_file: Pat
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--bundle', type=Path)
+    parser.add_argument('--manifest', type=Path)
     args = parser.parse_args()
-    print(json.dumps(package_demo(args.output), indent=2))
+    print(json.dumps(package_demo(args.output, bundle=args.bundle, manifest_file=args.manifest), indent=2))
 
 
 if __name__ == '__main__':
