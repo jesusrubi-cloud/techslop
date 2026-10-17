@@ -1,0 +1,195 @@
+{
+  "$defs": {
+    "Animation": {
+      "additionalProperties": false,
+      "properties": {
+        "technique": {
+          "enum": [
+            "map",
+            "timeline",
+            "typography",
+            "chart",
+            "licensed_image",
+            "vector_motion"
+          ],
+          "title": "Technique",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "asset_origin": {
+          "default": "original_local",
+          "enum": [
+            "original_local",
+            "licensed_pending_review"
+          ],
+          "title": "Asset Origin",
+          "type": "string"
+        },
+        "factual_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Factual Claim Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "technique",
+        "description"
+      ],
+      "title": "Animation",
+      "type": "object"
+    },
+    "Scene": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "start_seconds": {
+          "minimum": 0,
+          "title": "Start Seconds",
+          "type": "number"
+        },
+        "end_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "End Seconds",
+          "type": "number"
+        },
+        "narration_es": {
+          "minLength": 1,
+          "title": "Narration Es",
+          "type": "string"
+        },
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "source_urls": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Source Urls",
+          "type": "array"
+        },
+        "subtitles": {
+          "items": {
+            "$ref": "#/$defs/Subtitle"
+          },
+          "minItems": 1,
+          "title": "Subtitles",
+          "type": "array"
+        },
+        "animation": {
+          "$ref": "#/$defs/Animation"
+        }
+      },
+      "required": [
+        "id",
+        "start_seconds",
+        "end_seconds",
+        "narration_es",
+        "claim_ids",
+        "source_urls",
+        "subtitles",
+        "animation"
+      ],
+      "title": "Scene",
+      "type": "object"
+    },
+    "Subtitle": {
+      "additionalProperties": false,
+      "properties": {
+        "start_seconds": {
+          "minimum": 0,
+          "title": "Start Seconds",
+          "type": "number"
+        },
+        "end_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "End Seconds",
+          "type": "number"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start_seconds",
+        "end_seconds",
+        "text"
+      ],
+      "title": "Subtitle",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "event_id": {
+      "minLength": 1,
+      "title": "Event Id",
+      "type": "string"
+    },
+    "language": {
+      "const": "es",
+      "default": "es",
+      "title": "Language",
+      "type": "string"
+    },
+    "duration_seconds": {
+      "maximum": 75,
+      "minimum": 45,
+      "title": "Duration Seconds",
+      "type": "number"
+    },
+    "editorial_status": {
+      "default": "draft",
+      "enum": [
+        "draft",
+        "reviewed"
+      ],
+      "title": "Editorial Status",
+      "type": "string"
+    },
+    "publication_approved": {
+      "const": false,
+      "default": false,
+      "title": "Publication Approved",
+      "type": "boolean"
+    },
+    "scenes": {
+      "items": {
+        "$ref": "#/$defs/Scene"
+      },
+      "minItems": 1,
+      "title": "Scenes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "event_id",
+    "duration_seconds",
+    "scenes"
+  ],
+  "title": "EditorialScript",
+  "type": "object"
+}

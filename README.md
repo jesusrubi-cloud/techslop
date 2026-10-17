@@ -116,3 +116,13 @@ techslop/
 ## License
 
 [GNU General Public License v3.0](LICENSE)
+
+## Selección editorial sin APIs
+
+`uv run --frozen python pipeline.py editorial --dossiers` selecciona acontecimientos
+recientes, aplica diversidad y muestra expedientes con trazabilidad y comprobaciones
+pendientes. Usa `--json` para exportarlos. Consulta [la guía editorial](docs/editorial.md)
+y [el contrato de guion de 45–75 segundos](schemas/editorial-script.schema.json).
+
+La [validación con RSS reales](docs/editorial-validation.md) conserva una selección
+fechada de diez acontecimientos, sus puntuaciones y todos los enlaces utilizados.

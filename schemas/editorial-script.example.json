@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "event_id": "PENDIENTE_ID_EXPEDIENTE",
+  "language": "es",
+  "duration_seconds": 60,
+  "editorial_status": "draft",
+  "publication_approved": false,
+  "scenes": [
+    {
+      "id": "apertura",
+      "start_seconds": 0,
+      "end_seconds": 15,
+      "narration_es": "PENDIENTE: redactar una apertura factual atribuida tras revisar el expediente.",
+      "claim_ids": ["PENDIENTE_ID_AFIRMACION"],
+      "source_urls": ["https://example.org/plantilla-no-es-una-noticia"],
+      "subtitles": [{"start_seconds": 0, "end_seconds": 15, "text": "PENDIENTE: subtítulos de la apertura"}],
+      "animation": {"technique": "typography", "description": "Título y atribución con tipografía original local", "asset_origin": "original_local", "factual_claim_ids": ["PENDIENTE_ID_AFIRMACION"]}
+    },
+    {
+      "id": "contexto",
+      "start_seconds": 15,
+      "end_seconds": 45,
+      "narration_es": "PENDIENTE: explicar el contexto sustentado, atribuir declaraciones y señalar incertidumbres.",
+      "claim_ids": ["PENDIENTE_ID_AFIRMACION"],
+      "source_urls": ["https://example.org/plantilla-no-es-una-noticia"],
+      "subtitles": [{"start_seconds": 15, "end_seconds": 45, "text": "PENDIENTE: dividir en subtítulos legibles y ajustar al audio"}],
+      "animation": {"technique": "timeline", "description": "Cronología vectorial solo con fechas corroboradas; no inventar datos", "asset_origin": "original_local", "factual_claim_ids": ["PENDIENTE_ID_AFIRMACION"]}
+    },
+    {
+      "id": "cierre",
+      "start_seconds": 45,
+      "end_seconds": 60,
+      "narration_es": "PENDIENTE: cerrar con lo que se sabe, lo que falta por comprobar y las fuentes consultadas.",
+      "claim_ids": ["PENDIENTE_ID_AFIRMACION"],
+      "source_urls": ["https://example.org/plantilla-no-es-una-noticia"],
+      "subtitles": [{"start_seconds": 45, "end_seconds": 60, "text": "PENDIENTE: cierre y fuentes"}],
+      "animation": {"technique": "vector_motion", "description": "Tarjeta final original de fuentes e incertidumbres", "asset_origin": "original_local", "factual_claim_ids": []}
+    }
+  ]
+}

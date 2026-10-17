@@ -66,14 +66,17 @@ async def fetch_feed(name: str, url: str) -> list[Story]:
             if not title or urlsplit(link).scheme not in {"https", "http"} or not urlsplit(link).hostname:
                 continue
             date = entry.get("published_parsed") or entry.get("updated_parsed")
+            reported_date = bool(date)
             try:
                 published = datetime.fromtimestamp(timegm(date), timezone.utc) if date else datetime.now(timezone.utc)
             except (ValueError, OverflowError, TypeError):
+                reported_date = False
                 published = datetime.now(timezone.utc)
             stories.append(Story(
                 id=hashlib.sha256(link.encode()).hexdigest(), title=title,
                 url=link, source=name, score=1.0, published_at=published,
                 raw_data={"summary": entry.get("summary", ""), "language": "es",
+                          "published_at_reported": reported_date,
                           "tags": [tag.get("term", "") for tag in entry.get("tags", [])]},
             ))
         return stories

@@ -108,6 +108,30 @@ def list_stories(status, source, limit, category):
         click.echo(f"\n  ... and {total - limit} more. Use --limit to show more.")
 
 
+@cli.command("editorial")
+@click.option("--limit", type=click.IntRange(1, 50), default=10, show_default=True)
+@click.option("--json", "as_json", is_flag=True, help="Expedientes completos en JSON; sin red ni generación de pago.")
+@click.option("--dossiers", is_flag=True, help="Mostrar expedientes además del ranking.")
+def editorial(limit, as_json, dossiers):
+    """Selecciona acontecimientos de las últimas 24 horas desde SQLite, sin APIs."""
+    from techslop.editorial.selection import select_editorial
+    report = select_editorial(get_all_stories(), limit=limit)
+    if as_json:
+        click.echo(json.dumps(report, ensure_ascii=False, indent=2))
+        return
+    click.echo(f"Ventana: {report['window_start']} → {report['generated_at']}")
+    click.echo(f"Elegibles: {report['eligible_stories']} noticias, {report['eligible_events']} acontecimientos")
+    for event in report['selected']:
+        click.echo(f"{event['rank']:2}. {event['score']:.2f}/100 (selección: {event['selection_score']:.2f}) [{event['category']}] {event['title']}")
+        for source in event['sources']:
+            click.echo(f"    {source['source']}: {source['url']}")
+        if dossiers:
+            click.echo(json.dumps(event, ensure_ascii=False, indent=2))
+    for warning in report['warnings']:
+        click.echo(f"Aviso: {warning}")
+    click.echo("Selección orientativa; corroboración independiente pendiente. No se generó ni publicó video.")
+
+
 @cli.command("classify")
 @click.argument("story_id")
 @click.argument("category", type=click.Choice(CATEGORIES))
