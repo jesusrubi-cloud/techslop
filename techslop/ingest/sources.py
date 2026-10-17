@@ -7,6 +7,8 @@ import logging
 from typing import Callable, Awaitable
 
 from techslop.models import Story
+from techslop.config import settings
+from techslop.ingest.international import fetch_international
 from techslop.ingest.fourchan import fetch_fourchan
 from techslop.ingest.hackernews import fetch_hackernews
 from techslop.ingest.reddit import fetch_reddit
@@ -39,7 +41,7 @@ async def _run_source(name: str, fetcher: SourceFetcher) -> list[Story]:
         return []
 
 
-async def ingest_all() -> list[Story]:
+async def ingest_all(profile: str | None = None) -> list[Story]:
     """Run every registered source, collect stories, score, dedup, and sort.
 
     Sources are executed concurrently.  If any individual source fails the
@@ -48,14 +50,21 @@ async def ingest_all() -> list[Story]:
     Returns a deduplicated list of Story objects sorted by final score
     descending.
     """
-    tasks = [_run_source(name, fetcher) for name, fetcher in SOURCES]
-    results = await asyncio.gather(*tasks)
+    profile = profile or settings.news_profile
+    if profile not in {"international", "tech"}:
+        raise ValueError("NEWS_PROFILE must be international or tech")
+    sources = [("international", fetch_international)] if profile == "international" else SOURCES
+    tasks = [asyncio.wait_for(_run_source(name, fetcher), timeout=90) for name, fetcher in sources]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
     all_stories: list[Story] = []
     for stories in results:
+        if isinstance(stories, BaseException):
+            logger.warning("Source exceeded its deadline or failed (%s)", type(stories).__name__)
+            continue
         all_stories.extend(stories)
 
-    logger.info("Collected %d raw stories from %d sources", len(all_stories), len(SOURCES))
+    logger.info("Collected %d raw stories from %d sources", len(all_stories), len(sources))
 
     ranked = score_and_rank(all_stories)
     logger.info("Final pipeline produced %d scored stories", len(ranked))

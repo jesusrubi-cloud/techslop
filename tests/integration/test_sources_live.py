@@ -126,7 +126,7 @@ async def test_full_ingest_pipeline():
     """Run the full ingestion pipeline and validate scored results."""
     from techslop.ingest.sources import ingest_all
 
-    stories = await ingest_all()
+    stories = await ingest_all(profile="tech")
 
     assert len(stories) > 0, "Full pipeline returned no stories"
     print(f"\nFull pipeline: {len(stories)} stories after scoring/dedup")

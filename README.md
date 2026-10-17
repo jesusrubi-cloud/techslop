@@ -1,6 +1,15 @@
 # techslop
 
-Automated Tech News YouTube Shorts Pipeline. Ingests tech news from multiple sources, generates short-form video scripts with AI, synthesizes voice, assembles vertical video with animated captions, and publishes to YouTube Shorts.
+Sistema de noticias internacionales en español con captación RSS, clasificación editorial,
+deduplicación y enlaces de procedencia. Perfil predeterminado: BBC Mundo, DW y Noticias ONU.
+Reuters, AP y AFP requieren endpoints oficiales autorizados configurados por el usuario.
+
+**Publicación protegida:** `run` y `preview` solo generan archivos locales. Publicar exige
+`publish <ID> --approve-publication` después de revisar el video. Tener credenciales
+configuradas nunca constituye aprobación.
+
+Consulta [la guía de noticias internacionales](docs/international-news.md) para conocer
+fuentes, restricciones de red, pruebas gratuitas y el primer video sin APIs de pago.
 
 ## Setup
 
@@ -40,7 +49,7 @@ uv run python pipeline.py list
 # Generate a video preview (no upload)
 uv run python pipeline.py preview
 
-# Full pipeline: ingest → script → voice → video → upload
+# Generate a local preview (may use paid generation APIs; never uploads)
 uv run python pipeline.py run
 
 # Process multiple stories
@@ -71,8 +80,7 @@ docker compose build
 docker compose run techslop ingest
 docker compose run techslop preview
 
-# Run with cron (every 6 hours)
-docker compose up cron -d
+# The default compose command generates locally; it never publishes.
 ```
 
 ## Pipeline Steps

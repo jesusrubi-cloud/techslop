@@ -6,6 +6,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import httpx
 
 
 @pytest.mark.asyncio
@@ -59,8 +60,9 @@ async def test_hackernews_fetch():
 
 
 @pytest.mark.asyncio
-async def test_reddit_fetch():
+async def test_reddit_fetch(monkeypatch):
     """Reddit fetcher should parse RSS entries."""
+    monkeypatch.setattr("techslop.ingest.reddit.httpx.get", lambda *a, **k: httpx.Response(200, text="rss", request=httpx.Request("GET", "https://www.reddit.com")))
     mock_feed = MagicMock()
     mock_feed.bozo = False
     mock_feed.entries = [

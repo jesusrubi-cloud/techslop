@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 import feedparser
 import httpx
@@ -40,7 +42,7 @@ def _parse_feed(subreddit: str) -> list[Story]:
         for rank, entry in enumerate(feed.entries):
             link = entry.get("link", "")
             title = entry.get("title", "")
-            if not link or not title:
+            if not title or urlsplit(link).scheme not in {"http", "https"} or not urlsplit(link).hostname:
                 continue
 
             story_id = hashlib.sha256(link.encode()).hexdigest()
@@ -77,7 +79,7 @@ async def fetch_reddit() -> list[Story]:
 
     subreddits = [s.strip() for s in settings.reddit_subreddits.split(",")]
     for subreddit in subreddits:
-        stories = _parse_feed(subreddit)
+        stories = await asyncio.to_thread(_parse_feed, subreddit)
         all_stories.extend(stories)
         logger.info("Fetched %d stories from r/%s", len(stories), subreddit)
 

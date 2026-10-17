@@ -6,12 +6,12 @@ from techslop.voice.base import TTSProvider
 
 
 class EdgeTTS(TTSProvider):
-    VOICE = "en-US-GuyNeural"
+    VOICE = "es-MX-JorgeNeural"
 
     def __init__(self, config):
         self.config = config
 
     async def synthesize_chunk(self, text: str, output_path: Path) -> Path:
-        communicate = edge_tts.Communicate(text, self.VOICE)
+        communicate = edge_tts.Communicate(text, self.config.edge_tts_voice)
         await communicate.save(str(output_path))
         return output_path

@@ -50,6 +50,20 @@ def init_db() -> None:
 
 def upsert_story(story: Story) -> None:
     conn = get_connection()
+    from techslop.ingest.scorer import merge_references, same_story
+    # Keep stable IDs/statuses when the winning feed changes between refreshes.
+    existing = next((row for row in conn.execute("SELECT * FROM stories")
+                     if same_story(_row_to_story(row), story)), None)
+    if existing:
+        previous = _row_to_story(existing)
+        merge_references(story, previous)
+        if previous.url != story.url:
+            # Primary title/source stay unchanged in SQLite; keep matching context.
+            story.raw_data = {**story.raw_data, **previous.raw_data,
+                              "sources": story.raw_data["sources"]}
+        if previous.raw_data.get("category_manual"):
+            story.raw_data.update(category=previous.category, category_manual=True)
+        story.id = existing["id"]
     conn.execute(
         """
         INSERT INTO stories (id, title, url, source, score, published_at, raw_data, status, created_at)
