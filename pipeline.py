@@ -12,6 +12,7 @@ from pathlib import Path
 import click
 
 from techslop.config import settings
+from techslop.ingest.categories import CATEGORIES
 from techslop.db import (
     create_video_job,
     get_all_stories,
@@ -42,7 +43,7 @@ def cli():
         pipeline.py publish <ID>    # 7. Upload to YT/TikTok/IG/LinkedIn
         \b
         pipeline.py preview         # Auto: ingest → … → video, open locally (no upload)
-        pipeline.py run             # Auto: ingest → … → publish to all enabled platforms
+        pipeline.py run             # Local preview; never publishes
     """
     init_db()
     Path(settings.output_dir).mkdir(parents=True, exist_ok=True)
@@ -54,13 +55,16 @@ def cli():
 
 
 @cli.command()
-def ingest():
+@click.option("--profile", type=click.Choice(["international", "tech"]), default=None)
+def ingest(profile):
     """Fetch and score stories from all sources."""
     from techslop.ingest.sources import ingest_all
 
-    stories = asyncio.run(ingest_all())
+    stories = asyncio.run(ingest_all(profile=profile))
     for story in stories:
         upsert_story(story)
+    if not stories:
+        raise click.ClickException("No se captaron noticias. Revisa los avisos de red y las fuentes.")
     click.echo(f"Ingested {len(stories)} stories.")
     click.echo("\nTop 5:")
     for s in stories[:5]:
@@ -77,13 +81,16 @@ def ingest():
 @click.option("--status", default=None, help="Filter by status (new, scripted, rendered, published).")
 @click.option("--source", default=None, help="Filter by source.")
 @click.option("--limit", default=20, help="Max stories to show.")
-def list_stories(status, source, limit):
+@click.option("--category", type=click.Choice(CATEGORIES), default=None)
+def list_stories(status, source, limit, category):
     """Show stories and their statuses."""
     stories = get_all_stories()
     if not stories:
         click.echo("No stories found. Run 'ingest' first.")
         return
 
+    if category:
+        stories = [s for s in stories if s.category == category]
     if status:
         stories = [s for s in stories if s.status == status]
     if source:
@@ -93,11 +100,65 @@ def list_stories(status, source, limit):
         comments = len(s.raw_data.get("comments", []))
         ctx = f"+{comments}c" if comments else ""
         click.echo(f"  [{s.status:>10}] {s.score:.2f}  {s.source:<12} {s.title[:55]} {ctx}")
+        click.echo(f"             Category: {s.category}")
         click.echo(f"             ID: {s.id[:12]}  URL: {s.url[:60]}")
 
     total = len(stories)
     if total > limit:
         click.echo(f"\n  ... and {total - limit} more. Use --limit to show more.")
+
+
+@cli.command("render-editorial")
+@click.option("--script", "script_file", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--dossier", "dossier_file", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--presentation", "presentation_file", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--output-dir", type=click.Path(path_type=Path), required=True)
+@click.option("--test-audio", is_flag=True, help="Skip Edge TTS and use a labelled test tone.")
+def render_editorial_command(script_file, dossier_file, presentation_file, output_dir, test_audio):
+    """Render a local vertical MP4; never publishes or calls paid APIs."""
+    from techslop.render.runner import render_editorial
+    try:
+        result = render_editorial(script_file, dossier_file, presentation_file, output_dir, try_edge=not test_audio)
+    except (ValueError, PermissionError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+@cli.command("editorial")
+@click.option("--limit", type=click.IntRange(1, 50), default=10, show_default=True)
+@click.option("--json", "as_json", is_flag=True, help="Expedientes completos en JSON; sin red ni generación de pago.")
+@click.option("--dossiers", is_flag=True, help="Mostrar expedientes además del ranking.")
+def editorial(limit, as_json, dossiers):
+    """Selecciona acontecimientos de las últimas 24 horas desde SQLite, sin APIs."""
+    from techslop.editorial.selection import select_editorial
+    report = select_editorial(get_all_stories(), limit=limit)
+    if as_json:
+        click.echo(json.dumps(report, ensure_ascii=False, indent=2))
+        return
+    click.echo(f"Ventana: {report['window_start']} → {report['generated_at']}")
+    click.echo(f"Elegibles: {report['eligible_stories']} noticias, {report['eligible_events']} acontecimientos")
+    for event in report['selected']:
+        click.echo(f"{event['rank']:2}. {event['score']:.2f}/100 (selección: {event['selection_score']:.2f}) [{event['category']}] {event['title']}")
+        for source in event['sources']:
+            click.echo(f"    {source['source']}: {source['url']}")
+        if dossiers:
+            click.echo(json.dumps(event, ensure_ascii=False, indent=2))
+    for warning in report['warnings']:
+        click.echo(f"Aviso: {warning}")
+    click.echo("Selección orientativa; corroboración independiente pendiente. No se generó ni publicó video.")
+
+
+@cli.command("classify")
+@click.argument("story_id")
+@click.argument("category", type=click.Choice(CATEGORIES))
+def classify_story(story_id, category):
+    """Corrige la categoría editorial de una noticia sin APIs."""
+    story = _find_story(story_id)
+    if not story:
+        raise click.ClickException("Noticia no encontrada o ID ambiguo.")
+    story.raw_data.update(category=category, category_manual=True)
+    upsert_story(story)
+    click.echo(f"{story.id[:12]}: {category}")
 
 
 @cli.command()
@@ -111,6 +172,9 @@ def show(story_id):
     click.echo(f"Title:     {story.title}")
     click.echo(f"Source:    {story.source}")
     click.echo(f"URL:       {story.url}")
+    click.echo(f"Category:  {story.category}")
+    for ref in story.raw_data.get("sources", []):
+        click.echo(f"  Fuente: {ref['source']} — {ref['url']}")
     click.echo(f"Score:     {story.score:.3f}")
     click.echo(f"Status:    {story.status}")
     click.echo(f"Published: {story.published_at}")
@@ -347,7 +411,7 @@ def shots(story_id):
 
 @cli.command()
 @click.argument("story_id")
-@click.option("--open", "open_video", is_flag=True, default=True, help="Open video after assembly.")
+@click.option("--open/--no-open", "open_video", default=False, help="Open video after assembly.")
 def video(story_id, open_video):
     """Assemble the final video. Uses motion clips if present, else falls back to a static background."""
     from techslop.video.assembler import (
@@ -422,8 +486,11 @@ def video(story_id, open_video):
 @click.option("--tiktok/--no-tiktok", default=False, help="Upload to TikTok.")
 @click.option("--instagram/--no-instagram", default=False, help="Upload to Instagram.")
 @click.option("--linkedin/--no-linkedin", default=False, help="Upload to LinkedIn.")
-def publish(story_id, all_platforms, youtube, tiktok, instagram, linkedin):
-    """Upload a rendered video to platforms."""
+@click.option("--approve-publication", is_flag=True, help="Apruebo publicar este video en las plataformas seleccionadas.")
+def publish(story_id, all_platforms, youtube, tiktok, instagram, linkedin, approve_publication):
+    """Upload a rendered video only after explicit approval."""
+    if not approve_publication:
+        raise click.ClickException("Revisa el video y usa --approve-publication para autorizar esta publicación.")
     story = _find_story(story_id)
     if not story:
         return
@@ -439,7 +506,9 @@ def publish(story_id, all_platforms, youtube, tiktok, instagram, linkedin):
     script_obj = _load_script_json(script_path, story.id) if script_path.exists() else None
     description = (
         f"{script_obj.hook}\n\n" if script_obj else ""
-    ) + f"Source: {story.url}\n\n#tech #news #shorts"
+    ) + "Fuentes:\n" + "\n".join(
+        ref["url"] for ref in story.raw_data.get("sources", [{"url": story.url}])
+    ) + "\n\n#noticias #news #shorts"
 
     title = f"{story.title[:90]} #Shorts"
 
@@ -457,7 +526,8 @@ def publish(story_id, all_platforms, youtube, tiktok, instagram, linkedin):
             video_path=video_path,
             title=title,
             description=description,
-            tags=["tech", "news", "shorts", story.source],
+            tags=["noticias", "news", "shorts", story.source],
+            approved=True,
         )
         click.echo(f"  YouTube: https://youtube.com/shorts/{yt_id}")
 
@@ -465,23 +535,25 @@ def publish(story_id, all_platforms, youtube, tiktok, instagram, linkedin):
         click.echo("Uploading to TikTok...")
         from techslop.publish.tiktok import upload_to_tiktok
 
-        publish_id = upload_to_tiktok(video_path, title)
+        publish_id = upload_to_tiktok(video_path, title, approved=True)
         click.echo(f"  TikTok publish_id: {publish_id} (check mobile drafts inbox)")
 
     if instagram:
         click.echo("Uploading to Instagram...")
         from techslop.publish.instagram import upload_to_instagram
 
-        media_id = upload_to_instagram(video_path, title)
+        media_id = upload_to_instagram(video_path, title, approved=True)
         click.echo(f"  Instagram media_id: {media_id}")
 
     if linkedin:
         click.echo("Uploading to LinkedIn...")
         from techslop.publish.linkedin import upload_to_linkedin
 
-        post_id = upload_to_linkedin(video_path, title, description)
+        post_id = upload_to_linkedin(video_path, title, description, approved=True)
         click.echo(f"  LinkedIn post: {post_id}")
 
+    if not any([youtube, tiktok, instagram, linkedin]):
+        raise click.ClickException("No hay plataformas seleccionadas con credenciales.")
     update_story_status(story.id, "published")
     click.echo("Done!")
 
@@ -501,8 +573,8 @@ def preview(count):
 @cli.command()
 @click.option("--count", default=1, help="Number of stories to process.")
 def run(count):
-    """Full auto pipeline: ingest → script → voice → video → upload."""
-    _run_pipeline(count=count, upload=True)
+    """Generate local previews. Publication is a separate approved action."""
+    _run_pipeline(count=count, upload=False)
 
 
 # ---------------------------------------------------------------------------
@@ -566,6 +638,9 @@ def _dump_story_context(story):
     click.echo(f"Title:     {story.title}")
     click.echo(f"Source:    {story.source}")
     click.echo(f"URL:       {story.url}")
+    click.echo(f"Category:  {story.category}")
+    for ref in story.raw_data.get("sources", []):
+        click.echo(f"  Fuente: {ref['source']} — {ref['url']}")
     click.echo(f"Score:     {story.score:.3f}")
     click.echo(f"Published: {story.published_at}")
 
@@ -625,6 +700,8 @@ def _open_file(path: Path):
 
 
 def _run_pipeline(count: int = 1, upload: bool = False):
+    if upload:
+        raise PermissionError("Automatic publication is disabled; use publish with explicit approval.")
     from techslop.image_gen.grid import generate_grid, grid_shape
     from techslop.image_gen.split import split_grid
     from techslop.ingest.sources import ingest_all
@@ -735,50 +812,8 @@ def _run_pipeline(count: int = 1, upload: bool = False):
         update_story_status(story.id, "rendered")
         click.echo(f"  Video: {video_path}")
 
-        if upload:
-            description = f"{script_obj.hook}\n\nSource: {story.url}\n\n#tech #news #shorts"
-            title = f"{story.title[:90]} #Shorts"
-            tags = ["tech", "news", "shorts", story.source]
-
-            yt_id = None
-            if settings.youtube_refresh_token:
-                click.echo("  Uploading to YouTube...")
-                from techslop.publish.youtube import upload_to_youtube
-
-                yt_id = upload_to_youtube(
-                    video_path=video_path, title=title, description=description, tags=tags,
-                )
-                click.echo(f"    YouTube: https://youtube.com/shorts/{yt_id}")
-
-            if settings.tiktok_refresh_token:
-                click.echo("  Uploading to TikTok...")
-                from techslop.publish.tiktok import upload_to_tiktok
-
-                pid = upload_to_tiktok(video_path, title)
-                click.echo(f"    TikTok publish_id: {pid}")
-
-            if settings.instagram_access_token:
-                click.echo("  Uploading to Instagram...")
-                from techslop.publish.instagram import upload_to_instagram
-
-                mid = upload_to_instagram(video_path, title)
-                click.echo(f"    Instagram media_id: {mid}")
-
-            if settings.linkedin_access_token:
-                click.echo("  Uploading to LinkedIn...")
-                from techslop.publish.linkedin import upload_to_linkedin
-
-                pid = upload_to_linkedin(video_path, title, description)
-                click.echo(f"    LinkedIn post: {pid}")
-
-            update_video_job(
-                job_id, youtube_id=yt_id, status="published",
-                published_at=datetime.now(timezone.utc),
-            )
-            update_story_status(story.id, "published")
-        else:
-            click.echo(f"  Preview: {video_path}")
-            _open_file(video_path)
+        click.echo(f"  Preview: {video_path}")
+        _open_file(video_path)
 
     click.echo("\nDone!")
 

@@ -220,7 +220,7 @@ def assemble_video_motion(
 
     full_filter = chain_filters + ";" + overlay_filter
 
-    cmd = ["ffmpeg", "-y"]
+    cmd = ["ffmpeg", "-y", "-filter_complex_threads", "1"]
     for clip in clip_paths:
         cmd.extend(["-i", str(clip)])
     cmd.extend(["-i", str(audio_path)])
@@ -230,10 +230,12 @@ def assemble_video_motion(
         "-map", "[vfinal]",
         "-map", f"{len(clip_paths)}:a",
         "-c:v", "libx264",
-        "-preset", "medium",
+        "-preset", "veryfast",
+        "-threads", "2",
         "-crf", "23",
         "-r", "30",
         "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
         "-c:a", "aac",
         "-b:a", "192k",
         "-t", str(audio_duration),

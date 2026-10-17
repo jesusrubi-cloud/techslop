@@ -34,6 +34,11 @@ class Story:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+    @property
+    def category(self) -> str:
+        return self.raw_data.get("category", "actualidad_general")
+
+
 @dataclass
 class VideoJob:
     story_id: str

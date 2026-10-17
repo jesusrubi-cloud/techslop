@@ -1,0 +1,113 @@
+{
+  "event_id": "hybrid-demo-v1",
+  "language": "es",
+  "duration_seconds": 60,
+  "editorial_status": "draft",
+  "publication_approved": false,
+  "scenes": [
+    {
+      "id": "scene-1",
+      "start_seconds": 0,
+      "end_seconds": 15,
+      "narration_es": "Esto es una demostración ficticia de nuestro estudio de noticias. No describe un acontecimiento real. Vamos a recorrer cuatro escenas para probar títulos, ilustraciones, subtítulos y transiciones. Ningún contenido se publicará.",
+      "claim_ids": [
+        "demo-format"
+      ],
+      "source_urls": [
+        "urn:techslop:fictional-demo:original-manifest"
+      ],
+      "subtitles": [
+        {
+          "start_seconds": 0,
+          "end_seconds": 15,
+          "text": "Esto es una demostración ficticia de nuestro estudio de noticias. No describe un acontecimiento real. Vamos a recorrer cuatro escenas para probar títulos, ilustraciones, subtítulos y transiciones. Ningún contenido se publicará."
+        }
+      ],
+      "animation": {
+        "technique": "typography",
+        "description": "Elementos originales locales; ejercicio ficticio",
+        "factual_claim_ids": [
+          "demo-format"
+        ]
+      }
+    },
+    {
+      "id": "scene-2",
+      "start_seconds": 15,
+      "end_seconds": 30,
+      "narration_es": "La explicación utiliza dibujos geométricos originales. Las tarjetas representan un guion, una escena y una fuente. Son símbolos de trabajo, no documentos reales ni fotografías. El texto debe ser claro y dejar espacio para leer.",
+      "claim_ids": [
+        "demo-format"
+      ],
+      "source_urls": [
+        "urn:techslop:fictional-demo:original-manifest"
+      ],
+      "subtitles": [
+        {
+          "start_seconds": 15,
+          "end_seconds": 30,
+          "text": "La explicación utiliza dibujos geométricos originales. Las tarjetas representan un guion, una escena y una fuente. Son símbolos de trabajo, no documentos reales ni fotografías. El texto debe ser claro y dejar espacio para leer."
+        }
+      ],
+      "animation": {
+        "technique": "vector_motion",
+        "description": "Elementos originales locales; ejercicio ficticio",
+        "factual_claim_ids": [
+          "demo-format"
+        ]
+      }
+    },
+    {
+      "id": "scene-3",
+      "start_seconds": 30,
+      "end_seconds": 45,
+      "narration_es": "Este gráfico no presenta estadísticas de una noticia. Las barras muestran los segundos de audio medidos en cada fragmento de esta misma demostración. Los valores se calculan localmente y permiten comprobar la sincronización del montaje.",
+      "claim_ids": [
+        "demo-format"
+      ],
+      "source_urls": [
+        "urn:techslop:fictional-demo:original-manifest"
+      ],
+      "subtitles": [
+        {
+          "start_seconds": 30,
+          "end_seconds": 45,
+          "text": "Este gráfico no presenta estadísticas de una noticia. Las barras muestran los segundos de audio medidos en cada fragmento de esta misma demostración. Los valores se calculan localmente y permiten comprobar la sincronización del montaje."
+        }
+      ],
+      "animation": {
+        "technique": "chart",
+        "description": "Elementos originales locales; ejercicio ficticio",
+        "factual_claim_ids": [
+          "demo-format"
+        ]
+      }
+    },
+    {
+      "id": "scene-4",
+      "start_seconds": 45,
+      "end_seconds": 60,
+      "narration_es": "El cierre conserva las referencias del ejercicio y recuerda sus límites. Todo lo mostrado pertenece a una demostración ficticia. Para producir una noticia real todavía se necesitan hechos corroborados, revisión editorial y aprobación humana antes de publicar.",
+      "claim_ids": [
+        "demo-format"
+      ],
+      "source_urls": [
+        "urn:techslop:fictional-demo:original-manifest"
+      ],
+      "subtitles": [
+        {
+          "start_seconds": 45,
+          "end_seconds": 60,
+          "text": "El cierre conserva las referencias del ejercicio y recuerda sus límites. Todo lo mostrado pertenece a una demostración ficticia. Para producir una noticia real todavía se necesitan hechos corroborados, revisión editorial y aprobación humana antes de publicar."
+        }
+      ],
+      "animation": {
+        "technique": "timeline",
+        "description": "Elementos originales locales; ejercicio ficticio",
+        "factual_claim_ids": [
+          "demo-format"
+        ]
+      }
+    }
+  ]
+}

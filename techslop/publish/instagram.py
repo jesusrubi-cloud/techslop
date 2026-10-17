@@ -32,6 +32,7 @@ from pathlib import Path
 import httpx
 
 from techslop.config import settings
+from techslop.publish import require_approval
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ def _publish_container(creation_id: str) -> str:
     return r.json()["id"]
 
 
-def upload_to_instagram(video_path: Path, title: str, video_url: str | None = None) -> str:
+def upload_to_instagram(video_path: Path, title: str, video_url: str | None = None, *, approved: bool = False) -> str:
     """Publish a Reel.
 
     Args:
@@ -110,6 +111,7 @@ def upload_to_instagram(video_path: Path, title: str, video_url: str | None = No
 
     Returns the published media ID.
     """
+    require_approval(approved)
     _require_creds()
 
     if video_url is None:

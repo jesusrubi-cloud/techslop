@@ -1,0 +1,23 @@
+{
+  "scene-1": {
+    "kind": "intro",
+    "title": "Del expediente a la pantalla",
+    "text": "Cuatro escenas. Un ejercicio ficticio. Ningún hecho periodístico."
+  },
+  "scene-2": {
+    "kind": "explanation",
+    "title": "Explicar sin inventar imágenes",
+    "text": "Guion + escena + fuente. Ilustraciones geométricas originales."
+  },
+  "scene-3": {
+    "kind": "chart",
+    "title": "El audio marca el ritmo",
+    "text": "Segundos medidos en los archivos de audio de esta demo.",
+    "chart_metric": "measured_audio_seconds"
+  },
+  "scene-4": {
+    "kind": "closing",
+    "title": "Primero revisar. Después decidir.",
+    "text": "Guion, fuentes y sincronización: conservar la trazabilidad."
+  }
+}

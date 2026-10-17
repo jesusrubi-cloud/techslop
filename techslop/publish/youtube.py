@@ -7,6 +7,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
 from techslop.config import settings
+from techslop.publish import require_approval
 
 _CHUNK_SIZE = 10 * 1024 * 1024  # 10 MB
 
@@ -16,6 +17,7 @@ def upload_to_youtube(
     title: str,
     description: str,
     tags: list[str] | None = None,
+    *, approved: bool = False,
 ) -> str:
     """Upload a video to YouTube as a Short.
 
@@ -29,6 +31,7 @@ def upload_to_youtube(
     Returns:
         The YouTube video ID of the uploaded video.
     """
+    require_approval(approved)
     if "#Shorts" not in title:
         title = f"{title} #Shorts"
 

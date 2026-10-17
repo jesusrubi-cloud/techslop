@@ -1,0 +1,41 @@
+name: Descargar demo híbrida
+
+# Manual only: never runs on push, a schedule or a pull request.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Preparar MP4 y hoja de escenas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Obtener repositorio
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Recuperar archivos originales y verificar SHA-256
+        run: python3 scripts/package_hybrid_demo.py --output downloadable-demo
+      - name: Preparar instrucciones de descarga
+        run: |
+          {
+            echo '### Demo lista para descargar'
+            echo 'En el resumen de esta ejecución, baja hasta **Artifacts** y pulsa **techslop-demo-descargable**.'
+            echo 'Descomprime el ZIP para obtener techslop-demo.mp4 y contact-sheet.jpg.'
+            echo 'Son los archivos originales: no se ha renderizado, publicado en redes ni llamado a APIs de pago.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Adjuntar MP4 y hoja de escenas
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: techslop-demo-descargable
+          path: |
+            downloadable-demo/techslop-demo.mp4
+            downloadable-demo/contact-sheet.jpg
+            downloadable-demo/verification.json
+            downloadable-demo/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

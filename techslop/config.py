@@ -33,10 +33,14 @@ if Path(_ENV_FILE).exists():
 
 
 class Settings(BaseSettings):
+    news_profile: str = "international"  # international | tech
+    authorized_agency_rss: str = "{}"  # official licensed RSS URLs, no credentials
+
     # ── Script generation ────────────────────────────────────────────────
     openai_api_key: str = ""
 
     # ── TTS ──────────────────────────────────────────────────────────────
+    edge_tts_voice: str = "es-MX-JorgeNeural"
     tts_provider: str = "edge"  # edge | openai | elevenlabs | chatterbox
     elevenlabs_api_key: str = ""
     elevenlabs_voice_id: str = ""  # Cloned voice ID, when using elevenlabs

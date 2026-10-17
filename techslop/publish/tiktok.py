@@ -26,6 +26,7 @@ from pathlib import Path
 import httpx
 
 from techslop.config import settings
+from techslop.publish import require_approval
 
 logger = logging.getLogger(__name__)
 
@@ -56,13 +57,14 @@ def _refresh_access_token() -> str:
     return r.json()["access_token"]
 
 
-def upload_to_tiktok(video_path: Path, title: str) -> str:
+def upload_to_tiktok(video_path: Path, title: str, *, approved: bool = False) -> str:
     """Upload a video to the authenticated TikTok account's drafts inbox.
 
     Returns the publish_id assigned by TikTok. The video lands in the user's
     mobile drafts; final posting requires a tap unless the app has been
     granted "direct post" by TikTok review.
     """
+    require_approval(approved)
     access_token = _refresh_access_token()
     video_size = video_path.stat().st_size
 

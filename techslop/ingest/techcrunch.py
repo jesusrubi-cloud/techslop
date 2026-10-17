@@ -7,6 +7,7 @@ import logging
 from datetime import datetime, timezone
 
 import feedparser
+import httpx
 
 from techslop.models import Story
 
@@ -25,7 +26,10 @@ async def fetch_techcrunch() -> list[Story]:
     stories: list[Story] = []
 
     try:
-        feed = feedparser.parse(FEED_URL)
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+            response = await client.get(FEED_URL)
+            response.raise_for_status()
+        feed = feedparser.parse(response.content)
         if feed.bozo and not feed.entries:
             logger.warning(
                 "feedparser reported an error for TechCrunch: %s",

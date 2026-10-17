@@ -113,3 +113,36 @@ def test_update_video_job():
     loaded = get_video_job(job_id)
     assert loaded.status == "rendered"
     assert loaded.youtube_id == "yt_abc123"
+
+
+def test_category_and_source_links_survive_roundtrip_and_refresh():
+    from techslop.db import get_all_stories, upsert_story, update_story_status
+    story = _make_story()
+    story.raw_data = {'category': 'economia', 'sources': [
+        {'source': 'dw', 'url': 'https://dw.example/original'}]}
+    upsert_story(story)
+    update_story_status(story.id, 'scripted')
+    story.raw_data = {'category': 'economia'}
+    upsert_story(story)
+    loaded = get_all_stories()[0]
+    assert loaded.category == 'economia'
+    assert loaded.status == 'scripted'
+    assert {'source': 'dw', 'url': 'https://dw.example/original'} in loaded.raw_data['sources']
+
+
+def test_cross_source_refresh_keeps_id_status_and_attribution():
+    from techslop.db import get_all_stories, upsert_story, update_story_status
+    title = 'Los gobiernos anuncian un nuevo acuerdo internacional'
+    first = _make_story('bbc', title=title)
+    first.raw_data = {'summary': 'Contexto BBC', 'category': 'politica_internacional'}
+    upsert_story(first)
+    update_story_status(first.id, 'rendered')
+    second = _make_story('dw', title=title)
+    second.raw_data = {'summary': 'Contexto DW'}
+    upsert_story(second)
+    loaded = get_all_stories()
+    assert len(loaded) == 1
+    assert loaded[0].id == first.id
+    assert loaded[0].status == 'rendered'
+    assert loaded[0].raw_data['summary'] == 'Contexto BBC'
+    assert {r['url'] for r in loaded[0].raw_data['sources']} == {first.url, second.url}

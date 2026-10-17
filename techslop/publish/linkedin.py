@@ -28,6 +28,7 @@ from pathlib import Path
 import httpx
 
 from techslop.config import settings
+from techslop.publish import require_approval
 
 logger = logging.getLogger(__name__)
 
@@ -115,8 +116,9 @@ def _create_ugc_post(asset_urn: str, title: str, description: str) -> str:
     return r.headers.get("x-restli-id") or r.json().get("id", "")
 
 
-def upload_to_linkedin(video_path: Path, title: str, description: str = "") -> str:
+def upload_to_linkedin(video_path: Path, title: str, description: str = "", *, approved: bool = False) -> str:
     """Upload a video and create a UGC post. Returns the post URN."""
+    require_approval(approved)
     _require_creds()
 
     logger.info("LinkedIn: registering upload for %s", video_path.name)
