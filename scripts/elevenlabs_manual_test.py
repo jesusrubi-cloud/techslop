@@ -24,6 +24,77 @@ class TestError(RuntimeError):
     """Safe diagnostic: never includes API response bodies, headers or credentials."""
 
 
+ERROR_BODY_LIMIT = 16_384
+# Only these exact provider codes influence diagnostics; never echo upstream text.
+PROVIDER_CATEGORIES = {
+    'insufficient_credits': 'insufficient_credits',
+    'insufficient_balance': 'insufficient_credits',
+    'credit_balance_too_low': 'insufficient_credits',
+    'paid_plan_required': 'plan_restriction',
+    'subscription_required': 'plan_restriction',
+    'subscription_tier_too_low': 'plan_restriction',
+    'feature_not_available_for_subscription': 'plan_restriction',
+    'model_not_available_for_subscription': 'plan_restriction',
+    'voice_not_found': 'voice_unavailable',
+    'voice_not_available': 'voice_unavailable',
+    'voice_not_available_for_api': 'voice_unavailable',
+    'voice_access_denied': 'voice_unavailable',
+    'api_key_quota_exceeded': 'account_quota',
+    'character_limit_exceeded': 'account_quota',
+    'monthly_quota_exceeded': 'account_quota',
+}
+
+
+class HTTPDiagnosticError(TestError):
+    def __init__(self, http_code: int, category: str):
+        super().__init__(f'HTTP {http_code} category={category}')
+
+
+def safe_http_category(http_code: int, body: bytes) -> str:
+    """Classify bounded response content; return only locally defined constants.
+
+    A generic 402 or quota_exceeded is ambiguous without specific evidence.
+    Messages are inspected only for fixed phrases, never returned or persisted.
+    """
+    fallback = ('payment_rejection_unknown' if http_code == 402 else
+                'authentication_error' if http_code == 401 else
+                'access_denied' if http_code == 403 else
+                'rate_limit_or_quota' if http_code == 429 else
+                'provider_error' if http_code >= 500 else 'http_error')
+    if len(body) > ERROR_BODY_LIMIT:
+        return fallback
+    try:
+        parsed = json.loads(body)
+        detail = parsed.get('detail', parsed) if isinstance(parsed, dict) else None
+        if not isinstance(detail, dict):
+            return fallback
+        status = detail.get('status', detail.get('code'))
+        if not isinstance(status, str):
+            return fallback
+        if status in PROVIDER_CATEGORIES:
+            return PROVIDER_CATEGORIES[status]
+        if status in {'quota_exceeded', 'payment_required'}:
+            message = detail.get('message')
+            message = message.casefold() if isinstance(message, str) else ''
+            signals = {
+                'insufficient_credits': ('insufficient credits', 'not enough credits', 'credits remaining'),
+                'account_quota': ('monthly quota', 'api key quota', 'api key limit', 'character quota'),
+                'plan_restriction': ('paid plan required', 'requires a paid subscription', 'free users cannot use', 'subscription tier does not support'),
+                'voice_unavailable': ('voice is not available via the api', 'voice is not available through the api', 'voice not available for api'),
+            }
+            categories = {category for category, phrases in signals.items()
+                          if any(phrase in message for phrase in phrases)}
+            if len(categories) == 1:
+                return categories.pop()
+            if status == 'quota_exceeded':
+                return 'quota_or_credits_ambiguous'
+            if categories:
+                return 'payment_rejection_ambiguous'
+    except (ValueError, UnicodeError, RecursionError):
+        pass
+    return fallback
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         raise TestError('API redirects are not allowed')
@@ -41,7 +112,14 @@ def request_bytes(opener, request, maximum: int) -> tuple[bytes, object]:
                 raise TestError('API response exceeds the permitted size')
             return payload, response.headers
     except urllib.error.HTTPError as exc:
-        raise TestError(f'ElevenLabs HTTP {exc.code}; no retry performed') from None
+        try:
+            body = exc.read(ERROR_BODY_LIMIT + 1)
+            category = safe_http_category(exc.code, body)
+        except Exception:
+            category = safe_http_category(exc.code, b'')
+        finally:
+            exc.close()
+        raise HTTPDiagnosticError(exc.code, category) from None
     except (urllib.error.URLError, TimeoutError, OSError):
         raise TestError('Network failure; no retry performed. A generation may still have been charged.') from None
 

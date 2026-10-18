@@ -97,3 +97,42 @@ muestran su ruta. El Voice ID sigue siendo una entrada de texto obligatoria
 en cada nueva ejecución, sin fijarlo en el workflow ni en los secretos.
 La corrección solo afecta a `main` después de integrar el PR: volver a ejecutar
 el workflow antiguo de `main` no incorpora los cambios de una rama pendiente.
+
+## Diagnóstico seguro de rechazos HTTP
+
+El script lee como máximo 16 KiB de la respuesta de error y cierra el cuerpo.
+Solo devuelve categorías locales de una lista cerrada. La salida de error HTTP
+contiene únicamente el código HTTP y la categoría, por ejemplo:
+
+```text
+HTTP 402 category=insufficient_credits
+```
+
+| Categoría | Evidencia necesaria |
+| --- | --- |
+| `insufficient_credits` | Código explícito de saldo/créditos insuficientes o señal específica en un rechazo de pago/cuota |
+| `plan_restriction` | Código de suscripción/plan requerido o frase inequívoca como `Paid plan required` |
+| `voice_unavailable` | Código de voz no encontrada/no disponible por API o señal específica equivalente |
+| `account_quota` | Código o frase específica de cuota mensual, límite de clave o cuota de caracteres |
+| `quota_or_credits_ambiguous` | `quota_exceeded` sin evidencia suficiente o con señales contradictorias |
+| `payment_rejection_ambiguous` | Rechazo de pago que señala más de una causa |
+| `payment_rejection_unknown` | HTTP 402 genérico, código desconocido, cuerpo no JSON, malformado o demasiado grande |
+
+Un 402 por sí solo **no permite distinguir** entre créditos, plan, cuota o voz.
+No se diagnosticó la causa de una ejecución pasada sin su respuesta estructurada;
+esta corrección permite clasificar la próxima ejecución que el usuario autorice.
+No añade solicitudes de saldo, suscripción ni comprobaciones de cuenta.
+
+Los códigos externos solo se consultan internamente; no se imprimen valores
+arbitrarios de `detail.status`, mensajes, cabeceras, URL, balance, correo, Voice ID
+ni campos de cuenta. Las frases se comparan solo contra patrones fijos para
+clasificar; nunca se reproducen. Un código desconocido se mantiene desconocido.
+También hay categorías generales seguras para autenticación, acceso, límite de
+peticiones y fallos del proveedor; no se infiere un problema de créditos a partir
+de un 401/403 genérico.
+
+Las pruebas usan exclusivamente respuestas simuladas con datos sensibles ficticios:
+comprueban las cuatro causas, ambigüedad, errores de parsing, límite de lectura,
+cierre de respuesta, salida exacta del CLI y ausencia de reintentos. No se invocó
+ElevenLabs ni se consumieron créditos durante esta validación. La autorización
+manual y el límite de una generación por ejecución se conservan.
