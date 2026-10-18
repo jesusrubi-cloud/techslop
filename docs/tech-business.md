@@ -262,3 +262,10 @@ El diagnóstico de feeds conserva la cadena de solicitudes y las respuestas con
 estado y `Location`; distingue HTTP del editor de `proxy_connect_status`.
 Los errores no vuelcan cuerpos de respuesta ni credenciales.
 Consulta [la última evaluación real de calidad](tech-business-quality-validation.md).
+
+## Diagnóstico independiente de red
+
+Existe un [workflow exclusivamente manual de diagnóstico RSS](rss-tech-business-diagnostic.md)
+para probar los nueve endpoints desde GitHub Actions y descargar sus informes.
+No cambia la captación ni las reglas editoriales y no establece disponibilidad
+hasta que se haya ejecutado realmente y revisado su informe.
