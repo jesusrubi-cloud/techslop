@@ -9,7 +9,7 @@ import edge_tts
 
 from techslop.config import settings
 
-from techslop.editorial.script_format import EditorialScript
+from techslop.editorial.script_format import EditorialScript, duration_bounds
 from techslop.video.assembler import get_audio_duration
 
 
@@ -50,8 +50,8 @@ def prepare_audio(script: EditorialScript, root: Path, *, try_edge: bool = True,
             raise ValueError('NARRATION_AUDIO_DIR is required for provided narration')
         paths = [directory / f'scene-{i+1}.wav' for i in range(len(script.scenes))]
         durations = [get_audio_duration(p) for p in paths]
-        if not 45 <= sum(durations) <= 75:
-            raise ValueError('Provided narration must total 45–75 seconds')
+        if not duration_bounds(script)[0] <= sum(durations) <= duration_bounds(script)[1]:
+            raise ValueError('Provided narration duration is outside the selected format bounds')
         boundaries = [json.loads(p.with_suffix('.words.json').read_text()) if p.with_suffix('.words.json').exists() else [] for p in paths]
         return paths, durations, boundaries, 'provided_voice', None
     reason = None
@@ -61,8 +61,8 @@ def prepare_audio(script: EditorialScript, root: Path, *, try_edge: bool = True,
                 return await asyncio.wait_for(_edge(script, root), timeout=90)
             paths, boundaries = asyncio.run(bounded())
             durations = [get_audio_duration(p) for p in paths]
-            if not 45 <= sum(durations) <= 75:
-                raise ValueError('Measured Edge narration is outside the 45–75s contract')
+            if not duration_bounds(script)[0] <= sum(durations) <= duration_bounds(script)[1]:
+                raise ValueError('Measured Edge narration is outside selected-format contract')
             return paths, durations, boundaries, 'edge_es_MX', None
         except Exception as exc:
             # Never dump proxy URLs, credentials or arbitrary exception payloads.
@@ -79,8 +79,8 @@ def prepare_audio(script: EditorialScript, root: Path, *, try_edge: bool = True,
             boundaries.append(synthesize_local(scene.narration_es, path, voice=settings.local_tts_voice, rate=settings.local_tts_rate))
             paths.append(path)
         durations = [get_audio_duration(p) for p in paths]
-        if not 45 <= sum(durations) <= 75:
-            raise ValueError(f'Local narration totals {sum(durations):.2f}s; revise copy or LOCAL_TTS_RATE to fit 45–75s')
+        if not duration_bounds(script)[0] <= sum(durations) <= duration_bounds(script)[1]:
+            raise ValueError(f'Local narration totals {sum(durations):.2f}s; revise copy or LOCAL_TTS_RATE to fit the selected format')
         return paths, durations, boundaries, 'espeak_es_419', reason
     if selected == 'edge' and reason:
         raise RuntimeError(f'Edge unavailable ({reason}); choose auto, espeak or explicit test audio')

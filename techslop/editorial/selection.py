@@ -200,6 +200,22 @@ def select_editorial(stories: list[Story], *, now: datetime | None = None, limit
               and s.raw_data.get('published_at_reported') is True
               and belongs_to_profile(s,profile)]
     candidates = [dossier(g, now, profile) for g in group_events(recent, profile)]
+    if profile == 'tech_business':
+        from techslop.profiles.tech_business import related
+        history = [s for s in stories if belongs_to_profile(s, profile)
+                   and s.raw_data.get('published_at_reported') is True
+                   and s.published_at.utcoffset() is not None
+                   and cutoff - timedelta(days=7) <= s.published_at < cutoff]
+        by_id = {s.id: s for s in recent}
+        for event in candidates:
+            members = [by_id[a['story_id']] for a in event['original_articles'] if a['story_id'] in by_id]
+            prior = sorted({s.url for s in history if any(same_story(s, m) or related(s, m) for m in members)})
+            event['novelty_basis'] = {'historical_window_days': 7, 'prior_event_urls': prior,
+                                      'limitation': 'Novedad relativa al archivo local; no demuestra exclusividad.'}
+            if prior:
+                event['score_components']['novelty'] = 2
+                event['score'] = round(sum(event['score_components'].values()), 2)
+            event['score_reasons'].append('Posible seguimiento de un acontecimiento archivado' if prior else 'Sin coincidencia en el archivo local de siete días')
     candidates.sort(key=lambda d: (-d['score'], d['event_id']))
     def source_key(event):
         if profile == 'tech_business':
@@ -224,8 +240,15 @@ def select_editorial(stories: list[Story], *, now: datetime | None = None, limit
             category_cap += 1
             warnings.append(f'Cuota por categoría relajada a {category_cap}: faltan temas distintos elegibles.')
             continue
+        if profile == 'tech_business':
+            floor = max(d['score'] for d in candidates) - 8
+            relevant = [d for d in eligible if d['score'] >= floor]
+            if not relevant:
+                relevant = [d for d in candidates if d['score'] >= floor]
+                warnings.append('Cuotas flexibilizadas para evitar desplazar noticias con más de 8 puntos de ventaja.')
+            eligible = relevant
         unseen_eligible = [d for d in eligible if category_counts[d['category']] == 0]
-        if unseen_eligible:
+        if unseen_eligible and profile != 'tech_business':
             # Cover available topics before repeats exhaust a source quota.
             eligible = unseen_eligible
         def adjusted(d):

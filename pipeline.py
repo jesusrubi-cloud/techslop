@@ -172,6 +172,23 @@ def editorial(limit, as_json, dossiers, profile):
     click.echo("Selección orientativa; corroboración independiente pendiente. No se generó ni publicó video.")
 
 
+@cli.command("prepare-editorial-script")
+@click.option("--dossier", "dossier_path", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--copy", "copy_path", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--format", "script_format", type=click.Choice(['quick', 'explained']), required=True)
+@click.option("--output", type=click.Path(path_type=Path), required=True)
+def prepare_editorial_script(dossier_path, copy_path, script_format, output):
+    """Ensambla texto editorial aportado por una persona; no llama APIs ni publica."""
+    from techslop.editorial.drafts import prepare_draft
+    try:
+        result = prepare_draft(json.loads(dossier_path.read_text()), json.loads(copy_path.read_text()), script_format)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+    click.echo(f'Borrador guardado en {output}; requiere revisión humana y corroboración antes de renderizar noticias reales.')
+
+
 @cli.command("classify")
 @click.argument("story_id")
 @click.argument("category", type=click.Choice((*CATEGORIES, *BUSINESS_CATEGORIES)))

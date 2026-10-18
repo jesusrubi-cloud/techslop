@@ -71,8 +71,9 @@ def components(group: list[Story], now: datetime, reliability: float) -> tuple[d
     scores = {'technological_impact': 20 if tech else 12 if innovation or any(category_for(s)=='tecnologia_ia' for s in group) else 3,
               'business_impact': 20 if business else 12 if tech or innovation else 4,
               'economic_relevance': 20 if economics else 10 if business else 4,
-              'recency': round(20*max(0,1-age/24),2),
-              'hispanic_relevance': 10 if hispanic else 6 if any(s.raw_data.get('language')=='es' for s in group) else 2,
+              'recency': round(15*max(0,1-age/24),2),
+              'hispanic_relevance': 5 if hispanic else 3 if any(s.raw_data.get('language')=='es' for s in group) else 1,
+              'novelty': 10,
               'source_reliability': round(10*reliability,2)}
     reasons = ['Indicadores léxicos bilingües; puntuación orientativa, no verificación']
     if hispanic: reasons.append('Referencia explícita a audiencia o regiones hispanohablantes')
@@ -172,4 +173,9 @@ def enrich_dossier(result: dict, group: list[Story], now: datetime) -> dict:
                                             'editorial_role':role,'original_language':article['language'],'editorial_language':'es'})
     result['claims_by_role'] = {role:[c['id'] for c in result['pending_claims'] if c['editorial_role']==role]
                                for role in ['company_claim','official_claim','rumor','analysis','reported_claim']}
+    result['editorial_questions'] = {
+        'que_paso': {'claim_ids': [c['id'] for c in result['pending_claims']], 'status': 'requires_verification'},
+        'por_que_importa': {'status': 'requires_evidence', 'instruction': 'Explicar consecuencias empresariales o económicas con evidencia atribuida.'},
+        'que_podria_pasar_despues': {'status': 'conditional_analysis_only', 'instruction': 'Separar escenarios de hechos; indicar condiciones, incertidumbre y qué vigilar. No afirmar proyecciones como certezas.'},
+    }
     return result

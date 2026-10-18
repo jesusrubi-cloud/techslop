@@ -105,8 +105,8 @@ def test_business_score_explains_all_dimensions_and_hispanic_bonus():
     b=story(2,'A product review')
     events=select_editorial([a,b],now=NOW,profile='tech_business')['selected']
     top=next(e for e in events if e['title']==a.title)
-    assert set(top['score_components'])=={'technological_impact','business_impact','economic_relevance','recency','hispanic_relevance','source_reliability'}
-    assert top['score_components']['hispanic_relevance']==10
+    assert set(top['score_components'])=={'technological_impact','business_impact','economic_relevance','recency','hispanic_relevance','source_reliability','novelty'}
+    assert top['score_components']['hispanic_relevance']==5
     assert top['score']==round(sum(top['score_components'].values()),2)
     assert top['score']<=100
 

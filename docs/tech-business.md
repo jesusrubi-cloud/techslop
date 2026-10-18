@@ -86,8 +86,9 @@ Las correcciones manuales del perfil se conservan entre captaciones.
 | Impacto tecnológico | 20 |
 | Repercusión empresarial | 20 |
 | Relevancia económica | 20 |
-| Actualidad (descenso lineal en 24 h) | 20 |
-| Interés hispanohablante | 10 |
+| Actualidad (descenso lineal en 24 h) | 15 |
+| Interés hispanohablante | 5 |
+| Novedad en el archivo local | 10 |
 | Prior de confiabilidad de la fuente | 10 |
 
 El interés hispanohablante considera referencias explícitas a México, España y
@@ -100,7 +101,7 @@ Reutiliza las cuotas y la selección diversificada del perfil internacional,
 pero cuenta **grupos de publicadores**: Xataka y Genbeta comparten `webedia`;
 los feeds de Microsoft comparten `microsoft`. No se presentan como confirmaciones
 independientes. La cuota inicial es 40% de las plazas disponibles (hasta diez), relajable solo con aviso si faltan fuentes
-o temas; se prioriza representar categorías presentes antes de repetirlas.
+o temas, o si una cuota desplazaría noticias con más de ocho puntos de ventaja.
 El orden incorpora diversidad y no tiene por qué ser descendente por puntuación
 base. Los componentes y ajustes quedan en el expediente JSON.
 
@@ -150,7 +151,7 @@ perfil mantienen la interpretación internacional anterior. No hay migración
 ni eliminación de noticias, credenciales o perfiles.
 
 Los expedientes mantienen `event_id`, `sources` y los IDs y URLs de afirmaciones
-que exige el contrato JSON editorial de **45–75 segundos**. El formato sigue
+que exige el contrato JSON editorial, con modo heredado de **45–75 segundos**. El formato sigue
 siendo compatible con `validate_script` y el adaptador de render, que continúa
 exigiendo revisión y corroboración para noticias reales. No se invocó el render,
 ningún proveedor de voz ni la generación de OpenAI o fal.ai. La publicación sigue
@@ -168,3 +169,46 @@ Consulta [la ejecución real y su ranking](tech-business-validation.md) para la
 muestra fechada, URLs y puntuaciones. El funcionamiento real se confirmó solo para
 los cuatro feeds accesibles. La agrupación entre idiomas se probó con datos
 simulados; no apareció un acontecimiento bilingüe común en la muestra real.
+
+## Principio editorial y formatos de guion
+
+Cada expediente añade `editorial_questions`: **qué pasó**, **por qué importa**
+y **qué podría pasar después**. Las preguntas pendientes no son respuestas
+inventadas: el contexto y las consecuencias requieren evidencia; los escenarios
+son análisis condicional, nunca hechos corroborados.
+
+Puntuación máxima 100: impacto tecnológico/relevancia 20, empresarial 20,
+económico 20, actualidad 15, fiabilidad previa 10, novedad 10 y pertinencia
+hispanohablante 5. Novedad significa ausencia de coincidencia en el archivo local
+de los siete días anteriores a la ventana diaria; un seguimiento recibe 2/10.
+No demuestra exclusividad mundial. La diversidad usa grupos propietarios y
+categorías, pero no desplaza una noticia con más de ocho puntos de ventaja.
+Las excepciones quedan en `warnings`; la elección no es un fact-check.
+
+El contrato conserva `legacy` (45–75 s) y añade `quick` (30–45 s) y `explained`
+(60–75 s). Ambos exigen escenas `event`, `context`, `consequences`, `closing`.
+La narración medida y el adaptador usan los límites del formato elegido; no se
+estira audio para forzarlo. Subtítulos y tiempos finales siguen el audio real.
+
+Preparación sin modelos ni solicitudes de voz:
+
+```bash
+uv run python pipeline.py editorial --profile tech_business --json > ranking.json
+uv run python pipeline.py prepare-editorial-script \
+  --dossier expediente.json --copy texto-editorial.json --format quick \
+  --output guion-quick.json
+```
+
+`expediente.json` es un elemento de `selected` del ranking. `texto-editorial.json`
+es una lista de cuatro objetos, en el orden indicado. Cada uno contiene `section`,
+`narration_es`, `claim_ids` y `source_urls` tomados del expediente. El último
+incluye `conditional_outlook_es` empezando por «Si » y un cierre útil (qué vigilar
+o comprobar). Repetir con `--format explained` prepara la versión explicada.
+La persona editora aporta el contexto sustentado y la traducción: el programa
+no inventa información para completar el guion. Valida enlaces e IDs, pero no
+puede verificar semánticamente que una frase sea cierta o esté bien traducida.
+Los tiempos iniciales son orientativos, no equivalen a audio sintetizado.
+
+Todo sale en estado `draft`, `publication_approved=false`. El render de noticias
+reales exige revisión y corroboración independiente; ninguna acción de este
+perfil publica, genera audio de pago o invoca APIs de generación.

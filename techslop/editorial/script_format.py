@@ -26,6 +26,7 @@ class Scene(Contract):
     id: str = Field(min_length=1)
     start_seconds: float = Field(ge=0)
     end_seconds: float = Field(gt=0)
+    section: Literal['event', 'context', 'consequences', 'closing'] | None = None
     narration_es: str = Field(min_length=1)
     claim_ids: list[str] = Field(min_length=1)
     source_urls: list[str] = Field(min_length=1)
@@ -50,13 +51,19 @@ class EditorialScript(Contract):
     schema_version: Literal['1.0'] = '1.0'
     event_id: str = Field(min_length=1)
     language: Literal['es'] = 'es'
-    duration_seconds: float = Field(ge=45, le=75)
+    format: Literal['legacy', 'quick', 'explained'] = 'legacy'
+    duration_seconds: float = Field(ge=30, le=75)
     editorial_status: Literal['draft', 'reviewed'] = 'draft'
     publication_approved: Literal[False] = False
     scenes: list[Scene] = Field(min_length=1)
 
     @model_validator(mode='after')
     def timeline(self):
+        lower, upper = duration_bounds(self)
+        if not lower <= self.duration_seconds <= upper:
+            raise ValueError(f'{self.format} duration must be {lower}–{upper} seconds')
+        if self.format != 'legacy' and {s.section for s in self.scenes} != {'event', 'context', 'consequences', 'closing'}:
+            raise ValueError('Editorial formats require event, context, consequences and closing sections')
         previous = 0.0
         scene_ids = set()
         for scene in self.scenes:
@@ -87,3 +94,7 @@ def validate_script(data: dict, dossier: dict) -> EditorialScript:
             if not set(claims[claim_id]['source_urls']) & set(scene.source_urls):
                 raise ValueError('Scene claim lacks its original source URL')
     return script
+
+
+def duration_bounds(script: EditorialScript) -> tuple[int, int]:
+    return {'legacy': (45, 75), 'quick': (30, 45), 'explained': (60, 75)}[script.format]
