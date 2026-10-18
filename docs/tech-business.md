@@ -73,7 +73,8 @@ Categorías independientes:
 - `emprendimiento_innovacion`: startups, rondas de financiación e innovación.
 
 Son reglas deterministas en español e inglés. Prioriza el titular, luego resumen
-y etiquetas; las fuentes generalistas exigen alguna señal temática. Los feeds de
+y etiquetas para proponer categoría; todos los feeds pasan después el filtro
+de calidad basado exclusivamente en título y resumen. Los feeds de
 versiones se clasifican como tecnología por su ámbito declarado. No es un modelo
 semántico y requiere corrección editorial: se probaron falsos positivos como
 «compañeros» y beneficios alimentarios para no tratarlos como empresas.
@@ -212,3 +213,52 @@ Los tiempos iniciales son orientativos, no equivalen a audio sintetizado.
 Todo sale en estado `draft`, `publication_approved=false`. El render de noticias
 reales exige revisión y corroboración independiente; ninguna acción de este
 perfil publica, genera audio de pago o invoca APIs de generación.
+
+## Filtro de calidad editorial
+
+La captación especializada ya no admite un artículo únicamente por pertenecer a
+un feed especializado. Revisa el **título y resumen originales**, sin usar etiquetas
+genéricas del feed como prueba temática. Registra la evaluación de cada entrada
+en `--feed-report`, con términos observados, motivos, penalizaciones y URL.
+El ranking reevalúa también los registros históricos: una etiqueta antigua no
+permite saltar los nuevos filtros. No borra artículos ni sus otros perfiles.
+
+La mención de una empresa, empleo o sanciones, por sí sola, no justifica la
+selección. Se requieren términos tecnológicos específicos, un tema económico
+explícito o acciones empresariales/efectos en consumidores descritos en el RSS.
+No se deduce crecimiento, empleo, ingresos ni inversiones a partir de un anuncio
+de IA. Los impactos empresarial y económico reciben **0** cuando no hay señales
+correspondientes. Los términos son indicios de lo que relata una fuente, nunca
+corroboración del hecho o medida de su magnitud.
+
+Penalizaciones acumulables: actualización rutinaria sin consecuencias descritas
+**−30**, promoción/afiliación **−25**, declaración de empresa sin consecuencias
+concretas **−15**, ausencia de consecuencias descritas **−10**.
+Un lanzamiento de SDK no se convierte en noticia prioritaria por ser reciente.
+Una corrección de seguridad con explotación activa o vulnerabilidad crítica
+explícita puede conservar relevancia. No se presupone que todo comunicado
+empresarial sea publicidad: conserva su clasificación de declaración interesada.
+El ranking exige **35/100**, acota la puntuación final a un mínimo de cero y
+registra los descartes en `quality_excluded`. La diversidad solo actúa después
+de estos filtros; no rellena plazas con artículos antiguos o de baja puntuación.
+
+Los marcadores condicionales o de previsión limitan el componente de impacto
+correspondiente a **8/20**. `consequence_status` distingue
+`not_described`, `source_description_unverified` y
+`scenario_or_analysis_unverified`. Ninguno equivale a verificación independiente.
+La evaluación léxica es conservadora y puede tener falsos positivos/negativos;
+no sustituye leer el artículo y revisar causalidad, cifras, contexto y traducción.
+No accede a páginas de pago ni genera consecuencias que el RSS no contenga.
+
+Para revisar hasta 15 acontecimientos y sus descartes:
+
+```bash
+uv run python pipeline.py ingest --profile tech_business --feed-report output/feeds.json
+uv run python pipeline.py editorial --profile tech_business --limit 15 --json
+```
+
+La salida de texto del ranking muestra también fecha original y motivos.
+El diagnóstico de feeds conserva la cadena de solicitudes y las respuestas con
+estado y `Location`; distingue HTTP del editor de `proxy_connect_status`.
+Los errores no vuelcan cuerpos de respuesta ni credenciales.
+Consulta [la última evaluación real de calidad](tech-business-quality-validation.md).

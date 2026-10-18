@@ -63,19 +63,30 @@ def category_for(story: Story) -> str:
 def components(group: list[Story], now: datetime, reliability: float) -> tuple[dict, list[str]]:
     text = normalize(' '.join(s.title for s in group))
     tech = bool(re.search(r'\b(?:' + RULES['tecnologia_ia'] + r')\b', text))
-    business = bool(re.search(r'\b(?:' + RULES['empresas_negocios'] + r')\b', text))
-    economics = bool(re.search(r'\b(?:' + RULES['economia_mercados'] + r')\b', text))
     innovation = bool(re.search(r'\b(?:' + RULES['emprendimiento_innovacion'] + r')\b', text))
     hispanic = bool(re.search(r'\b(mexico|mexican\w*|espana|spain|spanish|latinoamerica|latin america|argentina|colombia|chile|peru|hispan\w*)\b', text))
     age = min((now-s.published_at).total_seconds()/3600 for s in group)
-    scores = {'technological_impact': 20 if tech else 12 if innovation or any(category_for(s)=='tecnologia_ia' for s in group) else 3,
-              'business_impact': 20 if business else 12 if tech or innovation else 4,
-              'economic_relevance': 20 if economics else 10 if business else 4,
+    from techslop.profiles.business_quality import assess
+    assessments = [assess(s) for s in group]
+    described_business = any(q['evidence_terms']['business_action'] or q['evidence_terms']['consumer'] for q in assessments)
+    described_economy = any(q['evidence_terms']['economy'] for q in assessments)
+    business_scenarios_only = described_business and not any((q['evidence_terms']['business_action'] or q['evidence_terms']['consumer']) and not q['scenario_markers'] for q in assessments)
+    economic_scenarios_only = described_economy and not any(q['evidence_terms']['economy'] and not q['scenario_markers'] for q in assessments)
+    scores = {'technological_impact': 20 if tech else 12 if innovation or any(category_for(s)=='tecnologia_ia' for s in group) else 0,
+              'business_impact': (8 if business_scenarios_only else 20) if described_business else 0,
+              'economic_relevance': (8 if economic_scenarios_only else 20) if described_economy else 0,
               'recency': round(15*max(0,1-age/24),2),
               'hispanic_relevance': 5 if hispanic else 3 if any(s.raw_data.get('language')=='es' for s in group) else 1,
               'novelty': 10,
               'source_reliability': round(10*reliability,2)}
     reasons = ['Indicadores léxicos bilingües; puntuación orientativa, no verificación']
+    # Use the strongest admissible report, without letting unrelated group members
+    # remove a penalty when none describes a concrete consequence.
+    penalty = max(sum(q['penalties'].values()) for q in assessments)
+    scores['quality_penalty'] = penalty
+    reasons.extend(max(assessments, key=lambda q: sum(q['penalties'].values()))['reasons'])
+    if business_scenarios_only or economic_scenarios_only:
+        reasons.append('Escenario o previsión detectados: máximo 8/20 en el impacto correspondiente; no es un resultado confirmado.')
     if hispanic: reasons.append('Referencia explícita a audiencia o regiones hispanohablantes')
     return scores, reasons
 
@@ -123,9 +134,10 @@ def related(first: Story, second: Story) -> bool:
 
 
 def enrich_dossier(result: dict, group: list[Story], now: datetime) -> dict:
+    from techslop.profiles.business_quality import assess
     lead = max(group,key=lambda s:(s.published_at,s.id))
     scores,reasons = components(group,now,max(s['reliability_prior'] for s in result['sources']))
-    result.update(profile='tech_business', category=category_for(lead), score=round(sum(scores.values()),2),
+    result.update(profile='tech_business', category=category_for(lead), score=max(0, round(sum(scores.values()),2)),
                   score_components=scores,score_reasons=reasons,editorial_language='es',
                   original_language=lead.raw_data.get('language','und'),
                   requires_translation=any(s.raw_data.get('language')!='es' for s in group),
@@ -136,6 +148,7 @@ def enrich_dossier(result: dict, group: list[Story], now: datetime) -> dict:
                                       'requirements':['Traducir al español sin alterar el original ni inventar datos.',
                                                       'Contrastar cifras, atribuir declaraciones empresariales y separar análisis de hechos.',
                                                       'Revisar contexto de México, España y Latinoamérica solo cuando haya evidencia.']},
+                  quality_assessments=[{'story_id': s.id, **assess(s)} for s in group],
                   verified_facts=[], verification_note='Los metadatos RSS no verifican hechos periodísticos.')
     from dataclasses import replace
     from hashlib import sha256

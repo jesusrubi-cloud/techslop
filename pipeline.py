@@ -160,11 +160,18 @@ def editorial(limit, as_json, dossiers, profile):
         click.echo(json.dumps(report, ensure_ascii=False, indent=2))
         return
     click.echo(f"Ventana: {report['window_start']} → {report['generated_at']}")
-    click.echo(f"Elegibles: {report['eligible_stories']} noticias, {report['eligible_events']} acontecimientos")
+    if report['profile'] == 'tech_business':
+        click.echo(f"Registros recientes afines: {report['eligible_stories']}; acontecimientos que superan el umbral: {report['eligible_events']}")
+    else:
+        click.echo(f"Elegibles: {report['eligible_stories']} noticias, {report['eligible_events']} acontecimientos")
     for event in report['selected']:
         click.echo(f"{event['rank']:2}. {event['score']:.2f}/100 (selección: {event['selection_score']:.2f}) [{event['category']}] {event['title']}")
         for source in event['sources']:
             click.echo(f"    {source['source']}: {source['url']}")
+        if report['profile'] == 'tech_business':
+            click.echo(f"    Fecha original: {event['published_at']}")
+            for reason in event['score_reasons']:
+                click.echo(f"    Motivo: {reason}")
         if dossiers:
             click.echo(json.dumps(event, ensure_ascii=False, indent=2))
     for warning in report['warnings']:

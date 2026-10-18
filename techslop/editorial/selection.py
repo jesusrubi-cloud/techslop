@@ -199,6 +199,12 @@ def select_editorial(stories: list[Story], *, now: datetime | None = None, limit
               and cutoff <= s.published_at <= now
               and s.raw_data.get('published_at_reported') is True
               and belongs_to_profile(s,profile)]
+    quality_excluded = []
+    if profile == 'tech_business':
+        from techslop.profiles.business_quality import assess
+        quality_excluded = [{'story_id': s.id, 'title': s.title, **assess(s)}
+                            for s in recent if not assess(s)['eligible']]
+        recent = [s for s in recent if assess(s)['eligible']]
     candidates = [dossier(g, now, profile) for g in group_events(recent, profile)]
     if profile == 'tech_business':
         from techslop.profiles.tech_business import related
@@ -214,8 +220,15 @@ def select_editorial(stories: list[Story], *, now: datetime | None = None, limit
                                       'limitation': 'Novedad relativa al archivo local; no demuestra exclusividad.'}
             if prior:
                 event['score_components']['novelty'] = 2
-                event['score'] = round(sum(event['score_components'].values()), 2)
+                event['score'] = max(0, round(sum(event['score_components'].values()), 2))
             event['score_reasons'].append('Posible seguimiento de un acontecimiento archivado' if prior else 'Sin coincidencia en el archivo local de siete días')
+    if profile == 'tech_business':
+        for event in candidates:
+            if event['score'] < 35:
+                quality_excluded.append({'event_id': event['event_id'], 'title': event['title'],
+                                         'score': event['score'], 'reason': 'Puntuación inferior al umbral editorial 35/100',
+                                         'source_urls': [s['url'] for s in event['sources']]})
+        candidates = [event for event in candidates if event['score'] >= 35]
     candidates.sort(key=lambda d: (-d['score'], d['event_id']))
     def source_key(event):
         if profile == 'tech_business':
@@ -266,7 +279,7 @@ def select_editorial(stories: list[Story], *, now: datetime | None = None, limit
     if len(selected) < limit:
         warnings.append(f'Solo hay {len(selected)} acontecimientos elegibles; no se completa con noticias antiguas.')
     return {"profile": profile, "version": "1.0", "generated_at": now.isoformat(), "window_start": cutoff.isoformat(),
-            "requested": limit, "eligible_stories": len(recent), "eligible_events": len(selected) + len(candidates),
+            "quality_excluded": quality_excluded, "requested": limit, "eligible_stories": len(recent), "eligible_events": len(selected) + len(candidates),
             "excluded_stories": len(stories) - len(recent), "selected": selected,
             "distribution": {"primary_sources": dict(Counter(e["primary_source"] for e in selected)), "publisher_groups": dict(source_counts), "categories": dict(category_counts)},
             "quota": {"initial_cap": initial_cap, "final_source_cap": source_cap, "final_category_cap": category_cap},

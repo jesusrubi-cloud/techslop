@@ -82,7 +82,7 @@ def test_rumor_analysis_and_reports_are_distinct(title,kind):
 
 
 def test_company_claims_are_never_verified_by_their_issuer():
-    event=select_editorial([story(1,source='google_blog')],now=NOW,profile='tech_business')['selected'][0]
+    event=select_editorial([story(1,'Google announces investment in AI infrastructure',source='google_blog')],now=NOW,profile='tech_business')['selected'][0]
     assert event['claims_by_role']['company_claim']
     assert event['independent_corroboration']['newsroom_candidates']==[]
     assert all(c['status']=='pending_independent_verification' for c in event['pending_claims'])
@@ -105,7 +105,7 @@ def test_business_score_explains_all_dimensions_and_hispanic_bonus():
     b=story(2,'A product review')
     events=select_editorial([a,b],now=NOW,profile='tech_business')['selected']
     top=next(e for e in events if e['title']==a.title)
-    assert set(top['score_components'])=={'technological_impact','business_impact','economic_relevance','recency','hispanic_relevance','source_reliability','novelty'}
+    assert set(top['score_components'])=={'technological_impact','business_impact','economic_relevance','recency','hispanic_relevance','source_reliability','novelty','quality_penalty'}
     assert top['score_components']['hispanic_relevance']==5
     assert top['score']==round(sum(top['score_components'].values()),2)
     assert top['score']<=100
@@ -174,6 +174,8 @@ def test_diversity_counts_related_publishers_together():
     categories=['tecnologia_ia','empresas_negocios','economia_mercados','emprendimiento_innovacion']
     items=[story(f'{source}-{i}',f'Informe independiente {source} {i}',source=source,category=category)
            for source in ['xataka','genbeta','the_verge','ecb'] for i,category in enumerate(categories)]
+    for item in items:
+        item.raw_data['summary'] = 'Inversión y empleo en empresas tecnológicas, según el informe.'
     report=select_editorial(items,now=NOW,profile='tech_business')
     assert len(report['selected'])==10
     assert report['distribution']['publisher_groups']['webedia']<=4

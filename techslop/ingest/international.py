@@ -53,17 +53,22 @@ def configured_feeds() -> dict[str, str]:
 
 async def fetch_feed(name: str, url: str, *, language: str = "es", diagnostics: list | None = None) -> list[Story]:
     visited = []
+    responses = []
     async def record(request):
         visited.append(str(request.url))
+    async def record_response(response):
+        responses.append({'url': str(response.url), 'status': response.status_code,
+                          'location': response.headers.get('location') if response.is_redirect else None})
     try:
-        async with httpx.AsyncClient(timeout=20, follow_redirects=True, event_hooks={'request':[record]}) as client:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True,
+                                     event_hooks={'request':[record], 'response':[record_response]}) as client:
             response = await client.get(url, headers={"User-Agent": "techslop/0.1 RSS reader"})
             response.raise_for_status()
         feed = feedparser.parse(response.content)
         if diagnostics is not None:
             diagnostics.append({'status':'ok' if feed.entries and response.is_success else 'empty_or_invalid',
                                 'http_status':response.status_code,'final_url':str(response.url),
-                                'request_chain':visited,'entries':len(feed.entries)})
+                                'request_chain':visited,'responses': responses,'entries':len(feed.entries)})
         if feed.bozo and not feed.entries:
             logger.warning("RSS %s: invalid or empty feed", name)
             return []
@@ -90,7 +95,9 @@ async def fetch_feed(name: str, url: str, *, language: str = "es", diagnostics: 
     except (httpx.HTTPError, ValueError) as exc:
         if diagnostics is not None:
             diagnostics.append({'status':'failed','error_type':type(exc).__name__,
-                                'request_chain':visited or [url]})
+                                'request_chain':visited or [url], 'responses': responses,
+                                'http_status': exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None,
+                                'proxy_connect_status': 403 if isinstance(exc, httpx.ProxyError) and '403' in str(exc) else None})
         logger.warning("RSS %s unavailable (%s)", name, type(exc).__name__)
         return []
 
