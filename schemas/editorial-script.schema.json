@@ -62,6 +62,24 @@
           "title": "End Seconds",
           "type": "number"
         },
+        "section": {
+          "anyOf": [
+            {
+              "enum": [
+                "event",
+                "context",
+                "consequences",
+                "closing"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
         "narration_es": {
           "minLength": 1,
           "title": "Narration Es",
@@ -155,9 +173,19 @@
       "title": "Language",
       "type": "string"
     },
+    "format": {
+      "default": "legacy",
+      "enum": [
+        "legacy",
+        "quick",
+        "explained"
+      ],
+      "title": "Format",
+      "type": "string"
+    },
     "duration_seconds": {
       "maximum": 75,
-      "minimum": 45,
+      "minimum": 30,
       "title": "Duration Seconds",
       "type": "number"
     },

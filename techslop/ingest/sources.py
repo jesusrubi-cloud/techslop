@@ -9,6 +9,7 @@ from typing import Callable, Awaitable
 from techslop.models import Story
 from techslop.config import settings
 from techslop.ingest.international import fetch_international
+from techslop.ingest.tech_business import fetch_tech_business
 from techslop.ingest.fourchan import fetch_fourchan
 from techslop.ingest.hackernews import fetch_hackernews
 from techslop.ingest.reddit import fetch_reddit
@@ -51,9 +52,10 @@ async def ingest_all(profile: str | None = None) -> list[Story]:
     descending.
     """
     profile = profile or settings.news_profile
-    if profile not in {"international", "tech"}:
-        raise ValueError("NEWS_PROFILE must be international or tech")
-    sources = [("international", fetch_international)] if profile == "international" else SOURCES
+    if profile not in {"international", "tech", "tech_business"}:
+        raise ValueError("NEWS_PROFILE must be international, tech or tech_business")
+    sources = ([("international", fetch_international)] if profile == "international" else
+               [("tech_business", fetch_tech_business)] if profile == "tech_business" else SOURCES)
     tasks = [asyncio.wait_for(_run_source(name, fetcher), timeout=90) for name, fetcher in sources]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -66,6 +68,9 @@ async def ingest_all(profile: str | None = None) -> list[Story]:
 
     logger.info("Collected %d raw stories from %d sources", len(all_stories), len(sources))
 
+    for story in all_stories:
+        if profile != 'tech_business':
+            story.raw_data.setdefault('profiles', {})[profile] = {'category': story.category}
     ranked = score_and_rank(all_stories)
     logger.info("Final pipeline produced %d scored stories", len(ranked))
     return ranked

@@ -59,10 +59,15 @@ def related(first: Story, second: Story) -> bool:
                  or (similarity >= 0.18 and (len(entity_overlap) >= 2 or len(overlap) >= 4))))
 
 
-def group_events(stories: list[Story]) -> list[list[Story]]:
+def group_events(stories: list[Story], profile: str = "international") -> list[list[Story]]:
+    def matches(first, second):
+        if profile == 'tech_business':
+            from techslop.profiles.tech_business import related as business_related
+            return same_story(first,second) or business_related(first,second)
+        return related(first,second)
     groups: list[list[Story]] = []
     for story in sorted(stories, key=lambda s: (s.published_at, s.id), reverse=True):
-        group = next((g for g in groups if all(related(story, other) for other in g)), None)
+        group = next((g for g in groups if all(matches(story, other) for other in g)), None)
         if group is None:
             groups.append([story])
         else:
@@ -73,12 +78,18 @@ def group_events(stories: list[Story]) -> list[list[Story]]:
 def source_info(source: str, url: str) -> dict:
     from urllib.parse import urlsplit
     host = (urlsplit(url).hostname or '').lower()
-    recognized = any(host == h or host.endswith('.' + h) for h in SOURCE_HOSTS.get(source, ()))
-    official = source in OFFICIAL and recognized
+    from techslop.profiles.tech_business import FEEDS
+    spec = next((f for f in FEEDS if f.name==source),None)
+    hosts = spec.hosts if spec else SOURCE_HOSTS.get(source, ())
+    recognized = any(host == h or host.endswith('.' + h) for h in hosts)
+    if spec and spec.path_prefix:
+        recognized = recognized and urlsplit(url).path.casefold().startswith(spec.path_prefix.casefold())
+    official = (source in OFFICIAL or (spec and spec.kind=='official')) and recognized
+    company = bool(spec and spec.kind=='company' and recognized)
     return {"source": source, "url": url, "recognized_host": recognized,
-            "type": "official" if official else "newsroom" if recognized else "unverified",
-            "independence_group": source if recognized else "unknown",
-            "reliability_prior": 0.95 if recognized and not official else 0.85 if official else 0.35}
+            "type": "company" if company else "official" if official else "newsroom" if recognized else "unverified",
+            "independence_group": (spec.publisher if spec and source not in SOURCE_HOSTS else source) if recognized else "unknown",
+            "reliability_prior": 0.75 if company else 0.95 if recognized and not official else 0.85 if official else 0.35}
 
 
 def event_sources(group: list[Story]) -> list[dict]:
@@ -117,7 +128,7 @@ def components(group: list[Story], now: datetime) -> tuple[dict, list[str]]:
             "international_importance": international, "source_reliability": reliability}, reasons
 
 
-def dossier(group: list[Story], now: datetime) -> dict:
+def dossier(group: list[Story], now: datetime, profile: str = "international") -> dict:
     lead = max(group, key=lambda s: (s.published_at, s.id))
     scores, reasons = components(group, now)
     sources = event_sources(group)
@@ -149,7 +160,7 @@ def dossier(group: list[Story], now: datetime) -> dict:
         category = lead.category
     if category not in CATEGORIES:
         category = 'actualidad_general'
-    return {
+    result = {
         "event_id": sha256('|'.join(sorted(s.id for s in group)).encode()).hexdigest()[:16],
         "title": lead.title, "summary": plain(lead.raw_data.get('summary', '')) or lead.title,
         "summary_type": "attributed_rss_excerpt_not_verified_synthesis", "summary_source_url": lead.url,
@@ -164,8 +175,20 @@ def dossier(group: list[Story], now: datetime) -> dict:
         "review_required": True, "publication_approved": False,
     }
 
+    if profile == 'tech_business':
+        from techslop.profiles.tech_business import enrich_dossier
+        return enrich_dossier(result,group,now)
+    return result
 
-def select_editorial(stories: list[Story], *, now: datetime | None = None, limit: int = 10) -> dict:
+
+def belongs_to_profile(story: Story, profile: str) -> bool:
+    memberships = story.raw_data.get('profiles')
+    return profile in memberships if memberships else profile == 'international'
+
+
+def select_editorial(stories: list[Story], *, now: datetime | None = None, limit: int = 10, profile: str = "international") -> dict:
+    if profile not in {'international','tech','tech_business'}:
+        raise ValueError('Unknown editorial profile')
     now = now or datetime.now(timezone.utc)
     if now.utcoffset() is None:
         raise ValueError('now must include a timezone')
@@ -174,17 +197,53 @@ def select_editorial(stories: list[Story], *, now: datetime | None = None, limit
     cutoff = now - timedelta(hours=24)
     recent = [s for s in stories if s.published_at.utcoffset() is not None
               and cutoff <= s.published_at <= now
-              and s.raw_data.get('published_at_reported') is True]
-    candidates = [dossier(g, now) for g in group_events(recent)]
+              and s.raw_data.get('published_at_reported') is True
+              and belongs_to_profile(s,profile)]
+    quality_excluded = []
+    if profile == 'tech_business':
+        from techslop.profiles.business_quality import assess
+        quality_excluded = [{'story_id': s.id, 'title': s.title, **assess(s)}
+                            for s in recent if not assess(s)['eligible']]
+        recent = [s for s in recent if assess(s)['eligible']]
+    candidates = [dossier(g, now, profile) for g in group_events(recent, profile)]
+    if profile == 'tech_business':
+        from techslop.profiles.tech_business import related
+        history = [s for s in stories if belongs_to_profile(s, profile)
+                   and s.raw_data.get('published_at_reported') is True
+                   and s.published_at.utcoffset() is not None
+                   and cutoff - timedelta(days=7) <= s.published_at < cutoff]
+        by_id = {s.id: s for s in recent}
+        for event in candidates:
+            members = [by_id[a['story_id']] for a in event['original_articles'] if a['story_id'] in by_id]
+            prior = sorted({s.url for s in history if any(same_story(s, m) or related(s, m) for m in members)})
+            event['novelty_basis'] = {'historical_window_days': 7, 'prior_event_urls': prior,
+                                      'limitation': 'Novedad relativa al archivo local; no demuestra exclusividad.'}
+            if prior:
+                event['score_components']['novelty'] = 2
+                event['score'] = max(0, round(sum(event['score_components'].values()), 2))
+            event['score_reasons'].append('Posible seguimiento de un acontecimiento archivado' if prior else 'Sin coincidencia en el archivo local de siete días')
+    if profile == 'tech_business':
+        for event in candidates:
+            if event['score'] < 35:
+                quality_excluded.append({'event_id': event['event_id'], 'title': event['title'],
+                                         'score': event['score'], 'reason': 'Puntuación inferior al umbral editorial 35/100',
+                                         'source_urls': [s['url'] for s in event['sources']]})
+        candidates = [event for event in candidates if event['score'] >= 35]
     candidates.sort(key=lambda d: (-d['score'], d['event_id']))
+    def source_key(event):
+        if profile == 'tech_business':
+            return next(s['independence_group'] for s in event['sources'] if s['source']==event['primary_source'])
+        return event['primary_source']
     selected = []
     source_counts, category_counts = Counter(), Counter()
-    source_cap = category_cap = max(1, math.ceil(limit * 0.4))
+    target_count = min(limit, len(candidates)) if profile == 'tech_business' else limit
+    initial_cap = max(1, math.ceil(target_count * 0.4))
+    source_cap = category_cap = initial_cap
     warnings = []
     # A 40% cap where feasible; relax minimally to fill requested slots,
     # recording every relaxation. Never invent extra sources/categories/events.
     while candidates and len(selected) < limit:
-        source_eligible = [d for d in candidates if source_counts[d['primary_source']] < source_cap]
+        source_eligible = [d for d in candidates if source_counts[source_key(d)] < source_cap]
         if not source_eligible:
             source_cap += 1
             warnings.append(f'Cuota por fuente relajada a {source_cap}: faltan fuentes distintas elegibles.')
@@ -194,28 +253,35 @@ def select_editorial(stories: list[Story], *, now: datetime | None = None, limit
             category_cap += 1
             warnings.append(f'Cuota por categoría relajada a {category_cap}: faltan temas distintos elegibles.')
             continue
+        if profile == 'tech_business':
+            floor = max(d['score'] for d in candidates) - 8
+            relevant = [d for d in eligible if d['score'] >= floor]
+            if not relevant:
+                relevant = [d for d in candidates if d['score'] >= floor]
+                warnings.append('Cuotas flexibilizadas para evitar desplazar noticias con más de 8 puntos de ventaja.')
+            eligible = relevant
         unseen_eligible = [d for d in eligible if category_counts[d['category']] == 0]
-        if unseen_eligible:
+        if unseen_eligible and profile != 'tech_business':
             # Cover available topics before repeats exhaust a source quota.
             eligible = unseen_eligible
         def adjusted(d):
-            bonus = (3 if source_counts[d['primary_source']] == 0 else 0) + (3 if category_counts[d['category']] == 0 else 0)
-            penalty = 2 * source_counts[d['primary_source']] + 2 * category_counts[d['category']]
+            bonus = (3 if source_counts[source_key(d)] == 0 else 0) + (3 if category_counts[d['category']] == 0 else 0)
+            penalty = 2 * source_counts[source_key(d)] + 2 * category_counts[d['category']]
             return d['score'] + bonus - penalty
         chosen = sorted(eligible, key=lambda d: (-adjusted(d), d['event_id']))[0]
         chosen['selection_score'] = round(adjusted(chosen), 2)
         chosen['diversity_adjustment'] = round(chosen['selection_score'] - chosen['score'], 2)
         chosen['rank'] = len(selected) + 1
         selected.append(chosen)
-        source_counts[chosen['primary_source']] += 1
+        source_counts[source_key(chosen)] += 1
         category_counts[chosen['category']] += 1
         candidates.remove(chosen)
     if len(selected) < limit:
         warnings.append(f'Solo hay {len(selected)} acontecimientos elegibles; no se completa con noticias antiguas.')
-    return {"version": "1.0", "generated_at": now.isoformat(), "window_start": cutoff.isoformat(),
-            "requested": limit, "eligible_stories": len(recent), "eligible_events": len(selected) + len(candidates),
+    return {"profile": profile, "version": "1.0", "generated_at": now.isoformat(), "window_start": cutoff.isoformat(),
+            "quality_excluded": quality_excluded, "requested": limit, "eligible_stories": len(recent), "eligible_events": len(selected) + len(candidates),
             "excluded_stories": len(stories) - len(recent), "selected": selected,
-            "distribution": {"primary_sources": dict(source_counts), "categories": dict(category_counts)},
-            "quota": {"initial_cap": max(1, math.ceil(limit * 0.4)), "final_source_cap": source_cap, "final_category_cap": category_cap},
+            "distribution": {"primary_sources": dict(Counter(e["primary_source"] for e in selected)), "publisher_groups": dict(source_counts), "categories": dict(category_counts)},
+            "quota": {"initial_cap": initial_cap, "final_source_cap": source_cap, "final_category_cap": category_cap},
             "warnings": warnings,
             "method": "Local keyword heuristics, timestamp window, publisher priors, diversity-aware greedy selection; not fact-checking."}

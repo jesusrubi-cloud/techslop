@@ -13,6 +13,10 @@ import click
 
 from techslop.config import settings
 from techslop.ingest.categories import CATEGORIES
+from techslop.profiles.tech_business import CATEGORIES as BUSINESS_CATEGORIES
+from techslop.editorial.selection import belongs_to_profile
+
+PROFILES = ["international", "tech", "tech_business"]
 from techslop.db import (
     create_video_job,
     get_all_stories,
@@ -55,12 +59,20 @@ def cli():
 
 
 @cli.command()
-@click.option("--profile", type=click.Choice(["international", "tech"]), default=None)
-def ingest(profile):
+@click.option("--profile", type=click.Choice(PROFILES), default=None)
+@click.option("--feed-report", type=click.Path(path_type=Path), default=None, help="Diagnóstico real de feeds tech_business en JSON.")
+def ingest(profile, feed_report):
     """Fetch and score stories from all sources."""
     from techslop.ingest.sources import ingest_all
 
+    effective_profile = profile or settings.news_profile
+    if feed_report and effective_profile != 'tech_business':
+        raise click.UsageError('--feed-report solo está disponible para tech_business')
     stories = asyncio.run(ingest_all(profile=profile))
+    if feed_report:
+        from techslop.ingest.tech_business import LAST_FETCH_REPORT
+        feed_report.parent.mkdir(parents=True, exist_ok=True)
+        feed_report.write_text(json.dumps(LAST_FETCH_REPORT, ensure_ascii=False, indent=2))
     for story in stories:
         upsert_story(story)
     if not stories:
@@ -81,16 +93,24 @@ def ingest(profile):
 @click.option("--status", default=None, help="Filter by status (new, scripted, rendered, published).")
 @click.option("--source", default=None, help="Filter by source.")
 @click.option("--limit", default=20, help="Max stories to show.")
-@click.option("--category", type=click.Choice(CATEGORIES), default=None)
-def list_stories(status, source, limit, category):
+@click.option("--category", type=click.Choice((*CATEGORIES, *BUSINESS_CATEGORIES)), default=None)
+@click.option("--profile", type=click.Choice(PROFILES), default=None)
+def list_stories(status, source, limit, category, profile):
     """Show stories and their statuses."""
     stories = get_all_stories()
     if not stories:
         click.echo("No stories found. Run 'ingest' first.")
         return
 
+    if profile:
+        stories = [s for s in stories if belongs_to_profile(s,profile)]
+    def selected_category(story):
+        if profile == 'tech_business':
+            from techslop.profiles.tech_business import category_for
+            return category_for(story)
+        return story.category
     if category:
-        stories = [s for s in stories if s.category == category]
+        stories = [s for s in stories if selected_category(s) == category]
     if status:
         stories = [s for s in stories if s.status == status]
     if source:
@@ -100,7 +120,7 @@ def list_stories(status, source, limit, category):
         comments = len(s.raw_data.get("comments", []))
         ctx = f"+{comments}c" if comments else ""
         click.echo(f"  [{s.status:>10}] {s.score:.2f}  {s.source:<12} {s.title[:55]} {ctx}")
-        click.echo(f"             Category: {s.category}")
+        click.echo(f"             Category: {selected_category(s)}")
         click.echo(f"             ID: {s.id[:12]}  URL: {s.url[:60]}")
 
     total = len(stories)
@@ -131,19 +151,27 @@ def render_editorial_command(script_file, dossier_file, presentation_file, outpu
 @click.option("--limit", type=click.IntRange(1, 50), default=10, show_default=True)
 @click.option("--json", "as_json", is_flag=True, help="Expedientes completos en JSON; sin red ni generación de pago.")
 @click.option("--dossiers", is_flag=True, help="Mostrar expedientes además del ranking.")
-def editorial(limit, as_json, dossiers):
+@click.option("--profile", type=click.Choice(PROFILES), default=None)
+def editorial(limit, as_json, dossiers, profile):
     """Selecciona acontecimientos de las últimas 24 horas desde SQLite, sin APIs."""
     from techslop.editorial.selection import select_editorial
-    report = select_editorial(get_all_stories(), limit=limit)
+    report = select_editorial(get_all_stories(), limit=limit, profile=profile or settings.news_profile)
     if as_json:
         click.echo(json.dumps(report, ensure_ascii=False, indent=2))
         return
     click.echo(f"Ventana: {report['window_start']} → {report['generated_at']}")
-    click.echo(f"Elegibles: {report['eligible_stories']} noticias, {report['eligible_events']} acontecimientos")
+    if report['profile'] == 'tech_business':
+        click.echo(f"Registros recientes afines: {report['eligible_stories']}; acontecimientos que superan el umbral: {report['eligible_events']}")
+    else:
+        click.echo(f"Elegibles: {report['eligible_stories']} noticias, {report['eligible_events']} acontecimientos")
     for event in report['selected']:
         click.echo(f"{event['rank']:2}. {event['score']:.2f}/100 (selección: {event['selection_score']:.2f}) [{event['category']}] {event['title']}")
         for source in event['sources']:
             click.echo(f"    {source['source']}: {source['url']}")
+        if report['profile'] == 'tech_business':
+            click.echo(f"    Fecha original: {event['published_at']}")
+            for reason in event['score_reasons']:
+                click.echo(f"    Motivo: {reason}")
         if dossiers:
             click.echo(json.dumps(event, ensure_ascii=False, indent=2))
     for warning in report['warnings']:
@@ -151,15 +179,40 @@ def editorial(limit, as_json, dossiers):
     click.echo("Selección orientativa; corroboración independiente pendiente. No se generó ni publicó video.")
 
 
+@cli.command("prepare-editorial-script")
+@click.option("--dossier", "dossier_path", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--copy", "copy_path", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--format", "script_format", type=click.Choice(['quick', 'explained']), required=True)
+@click.option("--output", type=click.Path(path_type=Path), required=True)
+def prepare_editorial_script(dossier_path, copy_path, script_format, output):
+    """Ensambla texto editorial aportado por una persona; no llama APIs ni publica."""
+    from techslop.editorial.drafts import prepare_draft
+    try:
+        result = prepare_draft(json.loads(dossier_path.read_text()), json.loads(copy_path.read_text()), script_format)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+    click.echo(f'Borrador guardado en {output}; requiere revisión humana y corroboración antes de renderizar noticias reales.')
+
+
 @cli.command("classify")
 @click.argument("story_id")
-@click.argument("category", type=click.Choice(CATEGORIES))
-def classify_story(story_id, category):
+@click.argument("category", type=click.Choice((*CATEGORIES, *BUSINESS_CATEGORIES)))
+@click.option("--profile", type=click.Choice(["international", "tech_business"]), default="international")
+def classify_story(story_id, category, profile):
     """Corrige la categoría editorial de una noticia sin APIs."""
     story = _find_story(story_id)
     if not story:
         raise click.ClickException("Noticia no encontrada o ID ambiguo.")
-    story.raw_data.update(category=category, category_manual=True)
+    if profile == 'tech_business':
+        if category not in BUSINESS_CATEGORIES or not belongs_to_profile(story,profile):
+            raise click.ClickException('La categoría y la noticia deben pertenecer a tech_business')
+        story.raw_data.setdefault('profiles', {})[profile] = {'category': category, 'category_manual': True}
+    else:
+        if category not in CATEGORIES:
+            raise click.ClickException('Categoría internacional requerida')
+        story.raw_data.update(category=category, category_manual=True)
     upsert_story(story)
     click.echo(f"{story.id[:12]}: {category}")
 

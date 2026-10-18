@@ -149,3 +149,15 @@ La demo con voz se descarga con el workflow manual **Descargar demo con voz**.
 [Workflow optativo de narración mexicana ≤15 s](docs/elevenlabs-manual-test.md):
 secreto de Actions, autorización manual, texto fijo de 63 caracteres y una sola
 generación como máximo, sin reintentos. No se ejecuta al hacer push.
+
+## Tecnología, negocios e innovación
+
+Perfil independiente `tech_business`, sin sustituir `international` ni `tech`:
+
+```sh
+uv run --frozen python pipeline.py ingest --profile tech_business
+uv run --frozen python pipeline.py editorial --profile tech_business --limit 10 --dossiers
+```
+
+[Fuentes, clasificación y ranking](docs/tech-business.md) ·
+[Resultados reales y limitaciones de red](docs/tech-business-validation.md).

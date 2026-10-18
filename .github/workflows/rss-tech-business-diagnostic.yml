@@ -1,0 +1,37 @@
+name: Diagnóstico RSS Tech Business
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rss-tech-business-diagnostic
+  cancel-in-progress: false
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Comprobar Python
+        run: python3 --version
+      - name: Diagnosticar nueve feeds públicos
+        run: python3 scripts/diagnose_rss_tech_business.py --output-dir output/rss-diagnostic
+      - name: Mostrar informe en el resumen de ejecución
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [ -f output/rss-diagnostic/rss-report.md ]; then
+            cat output/rss-diagnostic/rss-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Guardar informes descargables
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rss-tech-business-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            output/rss-diagnostic/rss-report.json
+            output/rss-diagnostic/rss-report.md
+          if-no-files-found: error
+          retention-days: 14

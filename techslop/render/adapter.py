@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import math
 import re
 
-from techslop.editorial.script_format import EditorialScript, validate_script
+from techslop.editorial.script_format import EditorialScript, duration_bounds, validate_script
 
 KINDS = {'intro', 'explanation', 'chart', 'closing'}
 
@@ -55,8 +55,8 @@ def adapt(data: dict, dossier: dict, presentation: dict, durations: list[float],
             raise ValueError('Maps and external images are not implemented; no fabricated assets')
         scenes.append(RenderScene(scene.id, visual['kind'], visual['title'], visual['text'], start, duration, tuple(scene.source_urls)))
         start += duration
-    if not 45 <= start <= 75:
-        raise ValueError(f'Measured audio totals {start:.2f}s; revise narration to fit 45–75s. Audio is never silently stretched')
+    if not duration_bounds(script)[0] <= start <= duration_bounds(script)[1]:
+        raise ValueError(f'Measured audio totals {start:.2f}s; revise narration to fit the selected format. Audio is never silently stretched')
     return script, RenderPlan(tuple(scenes), start, audio_mode, demo, tuple(durations))
 
 
