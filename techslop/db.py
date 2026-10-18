@@ -56,13 +56,26 @@ def upsert_story(story: Story) -> None:
                      if same_story(_row_to_story(row), story)), None)
     if existing:
         previous = _row_to_story(existing)
+        previous_profiles = previous.raw_data.get('profiles', {'international': {'category':previous.category}})
+        incoming_profiles = story.raw_data.get('profiles', {})
+        profiles = {**previous_profiles, **incoming_profiles}
+        for name, metadata in previous_profiles.items():
+            if metadata.get('category_manual') and not incoming_profiles.get(name, {}).get('category_manual'):
+                profiles[name] = metadata
         merge_references(story, previous)
+        originals = story.raw_data.get('original_articles')
         if previous.url != story.url:
             # Primary title/source stay unchanged in SQLite; keep matching context.
             story.raw_data = {**story.raw_data, **previous.raw_data,
                               "sources": story.raw_data["sources"]}
         if previous.raw_data.get("category_manual"):
             story.raw_data.update(category=previous.category, category_manual=True)
+        if originals:
+            story.raw_data['original_articles'] = originals
+        if incoming_profiles or previous.raw_data.get('profiles'):
+            story.raw_data['profiles'] = profiles
+        if set(incoming_profiles) == {'tech_business'}:
+            story.raw_data['category'] = previous.category
         story.id = existing["id"]
     conn.execute(
         """

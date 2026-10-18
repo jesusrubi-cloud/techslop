@@ -89,6 +89,19 @@ def merge_references(target: Story, other: Story) -> None:
         if ref not in refs:
             refs.append(ref)
     target.raw_data["sources"] = refs
+    profiles = {**other.raw_data.get('profiles', {}), **target.raw_data.get('profiles', {})}
+    if profiles:
+        target.raw_data['profiles'] = profiles
+    if 'tech_business' in profiles:
+        originals = {}
+        for item in [other, target]:
+            records = item.raw_data.get('original_articles') or [{
+                'story_id':item.id,'title':item.title,'source':item.source,'url':item.url,
+                'summary':item.raw_data.get('summary',''),'language':item.raw_data.get('language','und'),
+                'published_at':item.published_at.isoformat()}]
+            for record in records:
+                originals[(record['source'],record['url'])] = record
+        target.raw_data['original_articles'] = list(originals.values())
 
 
 def same_story(first: Story, second: Story) -> bool:
