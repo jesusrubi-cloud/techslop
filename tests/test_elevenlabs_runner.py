@@ -48,6 +48,11 @@ fi
     assert result.returncode == 0, result.stdout + result.stderr
     assert 'ffmpeg:' in result.stdout and 'ffprobe:' in result.stdout
     assert 'version' in result.stdout
+    for tool in ['ffmpeg', 'ffprobe']:
+        if tool in missing:
+            assert f'Herramienta ausente: {tool}' in result.stdout
+        else:
+            assert f'Herramienta disponible: {tool}' in result.stdout
     if missing:
         assert log.read_text().splitlines() == ['apt-get update', 'apt-get install --yes --no-install-recommends ffmpeg']
     else:
@@ -73,3 +78,14 @@ def test_manual_authorization_and_secret_scope_preserved():
     assert secret_steps[0]['env']['ELEVENLABS_API_KEY'] == '${{ secrets.ELEVENLABS_API_KEY }}'
     assert 'elevenlabs_manual_test.py' in secret_steps[0]['run']
     assert 'ELEVENLABS' not in setup_script()
+
+
+def test_voice_id_is_still_a_fresh_manual_input():
+    parsed = workflow()
+    voice = parsed['on']['workflow_dispatch']['inputs']['voice_id']
+    assert voice['required'] == 'true'
+    assert voice['type'] == 'string'
+    generation = next(step for step in parsed['jobs']['test']['steps']
+                      if 'ELEVENLABS_API_KEY' in step.get('env', {}))
+    assert generation['env']['VOICE_ID'] == '${{ inputs.voice_id }}'
+    assert '--voice-id "$VOICE_ID"' in generation['run']

@@ -36,8 +36,17 @@ jobs:
           echo "Python: $(command -v python3)"
           python3 --version
 
-          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
-            echo "::notice::Falta ffmpeg o ffprobe; instalando el paquete ffmpeg de Ubuntu mediante APT."
+          missing_tools=()
+          for tool in ffmpeg ffprobe; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              echo "::notice::Herramienta ausente: $tool"
+              missing_tools+=("$tool")
+            else
+              echo "Herramienta disponible: $tool ($(command -v "$tool"))"
+            fi
+          done
+          if (( ${#missing_tools[@]} > 0 )); then
+            echo "::notice::Instalando el paquete ffmpeg de Ubuntu mediante APT (incluye FFmpeg y FFprobe)."
             sudo apt-get update
             sudo apt-get install --yes --no-install-recommends ffmpeg
             hash -r

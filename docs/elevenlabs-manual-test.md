@@ -90,3 +90,10 @@ incluye ambas herramientas. Después muestra rutas y versiones y vuelve a verifi
 que ambas estén disponibles. La instalación ocurre antes del paso que recibe el
 secreto y genera audio; no realiza llamadas a ElevenLabs. Si APT falla o una
 herramienta sigue ausente, el job se detiene antes de la síntesis.
+
+El diagnóstico enumera individualmente `Herramienta ausente: ffmpeg` o
+`Herramienta ausente: ffprobe` antes de instalar; las herramientas presentes
+muestran su ruta. El Voice ID sigue siendo una entrada de texto obligatoria
+en cada nueva ejecución, sin fijarlo en el workflow ni en los secretos.
+La corrección solo afecta a `main` después de integrar el PR: volver a ejecutar
+el workflow antiguo de `main` no incorpora los cambios de una rama pendiente.
